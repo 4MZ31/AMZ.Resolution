@@ -61,7 +61,7 @@ Un second processus attend la fermeture du processus principal et tente une rest
 
 Fichiers locaux : **%LOCALAPPDATA%\AmdResolutionTray** :
 
-- settings.json : écran choisi, validation du profil, bibliothèque, jeux cochés, chemins des exécutables et option de démarrage.
+- settings.json : écran choisi, profil, bibliothèque, jeux cochés, exécutables, démarrage et option de mise à jour.
 - recovery.json : sauvegarde de l'affichage pendant une session.
 - app.log : erreurs locales, avec rotation limitée.
 
@@ -85,7 +85,20 @@ Ce fichier contient les identifiants de vos moniteurs. Retirer ces identifiants 
 
 Les commandes --settings et --quit ouvrent les paramètres de l'instance existante ou demandent une fermeture avec restauration. --scan-games <fichier.json> exporte le résultat d’un scan en lecture seule ; cet export contient les noms et chemins des installations et reste local.
 
-La mise à jour reste manuelle : quitter l’ancienne application, extraire la nouvelle archive et remplacer ResolutionTray.exe. Les paramètres existants sont conservés.
+## Mises à jour automatiques
+
+À partir de la **v0.4.0**, la version portable vérifie les publications de ce dépôt GitHub au démarrage puis toutes les six heures. Les versions publiées numérotées, y compris expérimentales, sont prises en compte. Les brouillons et versions plus anciennes sont ignorés. Une panne réseau laisse l’application fonctionner ; une nouvelle vérification sera tentée plus tard.
+
+- **Mettre à jour automatiquement**, dans les paramètres, est activé par défaut et peut être désactivé.
+- **Mettre à jour maintenant…**, dans le menu de l’icône, permet de rechercher et installer une version sans attendre.
+- Le téléchargement est vérifié avec le SHA-256 et, lorsqu’il est disponible, l’empreinte fournie par GitHub. Le contenu et la version de l’exécutable Windows x64 sont également contrôlés.
+- L’installation attend la fermeture des jeux sélectionnés et des fenêtres de configuration. Le bureau est restauré avant la fermeture de l’application.
+- Un processus séparé remplace l’exécutable dans son dossier actuel puis redémarre l’application. Si son démarrage n’est pas confirmé, l’ancienne version est restaurée et relancée. Les réglages ne sont pas remplacés ; la surveillance précédemment armée reprend au redémarrage.
+- Aucune élévation administrateur n’est demandée. Le dossier contenant l’application doit être accessible en écriture (par exemple un dossier utilisateur). Un dossier protégé peut nécessiter de déplacer l’application.
+
+**Installation initiale depuis une version antérieure à v0.4.0 :** quitter l’ancienne application, télécharger et extraire une dernière fois la nouvelle archive, puis remplacer ResolutionTray.exe. Les mises à jour suivantes sont automatiques. Les builds de développement ne s’auto-remplacent pas.
+
+Les téléchargements temporaires sont placés dans **%LOCALAPPDATA%\AmdResolutionTray\Updates**. Les anciennes préparations sont nettoyées lors des vérifications suivantes. Les requêtes contactent GitHub et ses serveurs de téléchargement ; la liste de jeux et les réglages restent locaux. Le SHA-256 contrôle l’intégrité du téléchargement et ne constitue pas une signature de l’éditeur.
 
 ## Développer
 
@@ -97,11 +110,11 @@ dotnet run --project tests/ResolutionTray.Tests -c Release
 .\build.ps1
 ~~~
 
-Fermer l'application avant de recompiler dans le même dossier de sortie. build.ps1 exécute les tests, produit l'exécutable autonome, l'archive ZIP et son empreinte SHA-256 dans artifacts/. GitHub Actions réalise les mêmes vérifications sur Windows.
+Fermer l'application avant de recompiler dans le même dossier de sortie. build.ps1 exécute les tests, produit l'exécutable autonome, l'archive ZIP et son empreinte SHA-256 dans artifacts/. GitHub Actions réalise les mêmes vérifications sur Windows, puis teste le redémarrage réel et le retour arrière de l’installateur sur des copies isolées.
 
 - src/ResolutionTray.Core : orchestration des changements et récupération, indépendante du matériel.
 - src/ResolutionTray : interface WinForms, appels Windows et AMD ADLX, stockage et processus de récupération.
-- tests/ResolutionTray.Tests : 67 tests déterministes des transitions, restaurations, manifestes Steam/Epic, choix des exécutables et jeux simultanés, sans modifier l’écran.
+- tests/ResolutionTray.Tests : 92 tests déterministes des profils, jeux, archives, versions et remplacements réversibles, sans modifier l’écran.
 
 ## État de validation
 

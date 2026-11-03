@@ -54,7 +54,7 @@ internal sealed class RecoveryStore : IRecoveryStore
 }
 
 internal sealed record AppSettings(string? DisplayIdentity = null, bool StartWithWindows = false,
-    string? VerifiedProfile = null, GameEntry[]? Games = null)
+    string? VerifiedProfile = null, GameEntry[]? Games = null, bool AutoUpdate = true)
 {
     internal GameEntry[] GameList => Games ?? (DisplayIdentity is null ? [] : GameCatalog.Defaults());
 }

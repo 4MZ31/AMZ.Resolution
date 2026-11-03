@@ -127,6 +127,7 @@ var cases = new List<(string, Func<Task>)>
 };
 cases.AddRange(GameModeTests.Cases());
 cases.AddRange(GameCatalogTests.Cases());
+cases.AddRange(UpdateTests.Cases());
 foreach (var stage in new[] { "create", "center", "test", "apply" })
 {
     var failedStage = stage;

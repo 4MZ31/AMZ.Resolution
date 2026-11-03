@@ -13,7 +13,7 @@ try {
     New-Item -ItemType Directory -Path $docsDir -Force | Out-Null
     Copy-Item -LiteralPath docs/README.en.md -Destination $docsDir
     $project = [xml](Get-Content -LiteralPath src/ResolutionTray/ResolutionTray.csproj -Raw)
-    $version = $project.Project.PropertyGroup.Version
+    $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText
     $archive = Join-Path $PSScriptRoot ("artifacts\amd-resolution-tray-$version-win-x64.zip")
     Compress-Archive -LiteralPath (Join-Path $publishDir 'ResolutionTray.exe'), (Join-Path $publishDir 'README.md'), (Join-Path $publishDir 'LICENSE'), (Join-Path $publishDir 'docs') -DestinationPath $archive -Force
     $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()

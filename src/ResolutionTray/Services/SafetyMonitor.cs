@@ -1,10 +1,12 @@
 using System.Diagnostics;
+using System.Collections.Concurrent;
 using ResolutionTray.Core;
 
 namespace ResolutionTray.Services;
 
 internal sealed class SafetyMonitor : ISafetyMonitor
 {
+    private static readonly ConcurrentDictionary<int, long> watchdogs = new();
     internal static ProcessStartInfo Command(params string[] arguments)
     {
         var executable = Environment.ProcessPath ?? throw new InvalidOperationException("Exécutable introuvable.");
@@ -20,9 +22,28 @@ internal sealed class SafetyMonitor : ISafetyMonitor
         using var process = Process.Start(Command("--watchdog", Environment.ProcessId.ToString(), sessionId.ToString(),
             Process.GetCurrentProcess().StartTime.ToUniversalTime().Ticks.ToString()))
             ?? throw new InvalidOperationException("Impossible de démarrer le processus de récupération.");
+        watchdogs[process.Id] = process.StartTime.ToUniversalTime().Ticks;
         if (!ready.WaitOne(TimeSpan.FromSeconds(5)) || process.HasExited)
             throw new InvalidOperationException("Le processus de récupération ne répond pas. Activation annulée.");
     }
+
+    internal static Task WaitForWatchdogsAsync() => Task.Run(() =>
+    {
+        foreach (var entry in watchdogs.ToArray())
+        {
+            var exited = false;
+            try
+            {
+                using var process = Process.GetProcessById(entry.Key);
+                if (process.StartTime.ToUniversalTime().Ticks == entry.Value && !process.WaitForExit(5000))
+                    throw new IOException("Le processus de récupération de l’affichage est encore actif.");
+                exited = true;
+            }
+            catch (ArgumentException) { exited = true; }
+            catch (InvalidOperationException) { exited = true; }
+            finally { if (exited) watchdogs.TryRemove(entry.Key, out _); }
+        }
+    });
 
     internal static int RunWatchdog(int parentId, Guid sessionId, long parentStartTicks)
     {

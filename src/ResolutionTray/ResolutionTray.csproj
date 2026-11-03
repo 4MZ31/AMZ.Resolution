@@ -7,7 +7,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>ResolutionTray</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <DefineConstants>$(DefineConstants);PORTABLE</DefineConstants>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../ResolutionTray.Core/ResolutionTray.Core.csproj" /></ItemGroup>
 </Project>

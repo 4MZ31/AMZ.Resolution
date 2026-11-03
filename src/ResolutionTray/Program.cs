@@ -13,6 +13,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args is ["--apply-update", var job]) return UpdateInstaller.Run(job);
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => ShowError(e.Exception);
@@ -23,10 +24,20 @@ internal static class Program
             if (args is ["--watchdog", var parent, var session, var ticks])
                 return SafetyMonitor.RunWatchdog(int.Parse(parent), Guid.Parse(session), long.Parse(ticks));
             if (args is ["--diagnose", var output]) return Diagnose(output);
+            if (args is ["--probe-update-download", var updateOutput]) return ProbeUpdateDownload(updateOutput);
             if (args is ["--scan-games", var catalogOutput]) return ScanGames(catalogOutput);
             if (args is ["--preview-settings"]) return PreviewSettings();
-            if (args.Length != 0 && args is not ["--settings"] && args is not ["--quit"])
+            Guid? updated = null;
+            if (args is ["--updated", _] or ["--updated", _, "--resume-monitoring"])
+                updated = Guid.Parse(args[1]);
+            var resume = args is ["--resume-monitoring"] or ["--updated", _, "--resume-monitoring"];
+            if (args.Length != 0 && args is not ["--settings"] && args is not ["--quit"] && updated is null && !resume)
                 throw new ArgumentException("Arguments : --settings, --quit, --diagnose <fichier.json> ou --scan-games <fichier.json>.");
+            if (updated is null && UpdateInstaller.IsInstalling())
+            {
+                MessageBox.Show("Une mise à jour est en cours. L’application va redémarrer automatiquement.", "Resolution Tray");
+                return 0;
+            }
             using var appLock = new Mutex(false, MutexName);
             try
             {
@@ -48,7 +59,7 @@ internal static class Program
             try
             {
                 if (args is ["--quit"]) return 0;
-                using var context = new TrayContext(args.Length > 0);
+                using var context = new TrayContext(args is ["--settings"], updated, resume);
                 Application.Run(context);
             }
             finally { appLock.ReleaseMutex(); }
@@ -68,7 +79,7 @@ internal static class Program
             games.Update(SettingsStore.Load().GameList);
             result = new
             {
-                Application = "AMD Resolution Tray", Version = "0.3.0", ReadOnly = true,
+                Application = "AMD Resolution Tray", Version = GitHubUpdateClient.CurrentVersion.ToString(3), ReadOnly = true,
                 SelectedGameRunning = games.IsRunning(),
                 Displays = backend.GetDisplays().Select(display =>
                 {
@@ -84,6 +95,25 @@ internal static class Program
         catch (Exception ex) { result = new { ReadOnly = true, Error = ex.ToString() }; exitCode = 1; }
         File.WriteAllText(Path.GetFullPath(output), JsonSerializer.Serialize(result, AppStorage.Json));
         return exitCode;
+    }
+
+    private static int ProbeUpdateDownload(string output)
+    {
+        try
+        {
+            using var client = new GitHubUpdateClient();
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            var release = client.CheckAsync(cancellation.Token, new Version(0, 0, 0)).GetAwaiter().GetResult()
+                ?? throw new InvalidDataException("Aucune version publiée à vérifier.");
+            var update = client.DownloadAsync(release, null, cancellation.Token).GetAwaiter().GetResult();
+            File.WriteAllText(output, JsonSerializer.Serialize(new { Version = update.Version.ToString(3), Verified = true, InstallAttempted = false }, AppStorage.Json));
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            File.WriteAllText(output, JsonSerializer.Serialize(new { Verified = false, Error = ex.ToString() }, AppStorage.Json));
+            return 1;
+        }
     }
 
     private static int PreviewSettings()

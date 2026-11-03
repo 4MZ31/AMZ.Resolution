@@ -10,6 +10,7 @@ internal sealed class SettingsForm : Form
     private readonly List<GameEntry> games;
     private readonly ComboBox displays = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top };
     private readonly CheckBox startup = new() { Text = "Lancer avec Windows", AutoSize = true };
+    private readonly CheckBox automaticUpdates = new() { Text = "Mettre à jour automatiquement", AutoSize = true };
     private readonly GameListView library = new() { Dock = DockStyle.Fill, View = View.Details, CheckBoxes = true,
         FullRowSelect = true, MultiSelect = false, HideSelection = false, BorderStyle = BorderStyle.None, ShowItemToolTips = true };
     private readonly TextBox search = new() { Dock = DockStyle.Fill, PlaceholderText = "Rechercher un jeu…", BorderStyle = BorderStyle.FixedSingle };
@@ -38,7 +39,7 @@ internal sealed class SettingsForm : Form
         this.saveChanges = saveChanges;
         games = settings.GameList.ToList();
         targets = allDisplays.Where(d => d.NativeWidth == 2560 && d.NativeHeight == 1440).ToArray();
-        Text = "AMD Resolution Tray — Vos jeux";
+        Text = $"AMD Resolution Tray — Vos jeux · v{GitHubUpdateClient.CurrentVersion.ToString(3)}";
         Font = new Font("Segoe UI", 10);
         ForeColor = UiTheme.Ink;
         BackColor = UiTheme.Background;
@@ -75,6 +76,7 @@ internal sealed class SettingsForm : Form
         Controls.Add(outer);
         CancelButton = cancel;
         startup.Checked = StartupRegistration.IsEnabled;
+        automaticUpdates.Checked = settings.AutoUpdate;
         foreach (var display in targets) displays.Items.Add($"{display.Name} · {display.CurrentMode.RefreshRate} Hz");
         var selected = targets.ToList().FindIndex(d => d.Identity == settings.DisplayIdentity);
         displays.SelectedIndex = selected >= 0 ? selected : targets.Count == 1 ? 0 : -1;
@@ -147,18 +149,20 @@ internal sealed class SettingsForm : Form
         card.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         card.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
         card.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 154));
+        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 138));
         card.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
         card.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
+        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
         card.Controls.Add(UiTheme.Label("Votre zone de jeu", 14, true));
         card.Controls.Add(displays);
         card.Controls.Add(displayInfo);
         card.Controls.Add(new DisplayPreview());
         card.Controls.Add(UiTheme.Label("Centré, sans agrandissement.\nSur un écran 27″ : environ 24,5″.", 9));
         card.Controls.Add(UiTheme.Label("Activé avec vos jeux cochés.\nBureau restauré à leur fermeture.", 10));
-        card.Controls.Add(startup);
+        var options = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = Padding.Empty };
+        options.Controls.Add(startup); options.Controls.Add(automaticUpdates);
+        card.Controls.Add(options);
         card.Controls.Add(UiTheme.Label("Vert : en jeu · Gris : attente ou arrêt", 9));
         return card;
     }
@@ -284,7 +288,7 @@ internal sealed class SettingsForm : Form
         try
         {
             var result = Result with { DisplayIdentity = targets[displays.SelectedIndex].Identity,
-                StartWithWindows = startup.Checked, Games = games.ToArray() };
+                StartWithWindows = startup.Checked, Games = games.ToArray(), AutoUpdate = automaticUpdates.Checked };
             if (saveChanges)
             {
                 StartupRegistration.Set(startup.Checked);

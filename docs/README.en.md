@@ -45,7 +45,15 @@ Settings, recovery data and local error logs live in **%LOCALAPPDATA%\AmdResolut
 .\ResolutionTray.exe --diagnose "$env:TEMP\resolution-tray.json"
 ~~~
 
-Diagnostics include monitor identifiers; remove them before posting a public issue. Use --settings to reopen settings and --quit to request a graceful exit. --scan-games <file.json> exports a read-only game scan containing installation names and paths. Updates are manual: quit the old app and replace ResolutionTray.exe; existing settings are preserved. To uninstall, disable startup in settings, exit and remove the extracted folder. The custom AMD mode can be removed separately in Adrenalin.
+Diagnostics include monitor identifiers; remove them before posting a public issue. Use --settings to reopen settings and --quit to request a graceful exit. --scan-games <file.json> exports a read-only game scan containing installation names and paths. From v0.4.0, portable releases update automatically; upgrading from an older version requires one final manual replacement. Existing settings are preserved.
+
+## Automatic updates
+
+The portable app checks this GitHub repository at startup and every six hours, including numbered experimental releases. Older versions and drafts are ignored. Network errors leave the app running and are retried later. **Mettre à jour automatiquement** in settings enables/disables this behavior; **Mettre à jour maintenant…** in the tray menu checks and installs on demand.
+
+Downloads are checked against the published SHA-256 and GitHub digest when present, then the Windows x64 executable format and file version are verified. Installation waits until selected games and configuration windows are closed. The desktop is restored before exit. A separate process replaces the executable in its current folder, relaunches it and keeps a backup until startup is acknowledged. Failed startup restores and relaunches the previous version. Armed monitoring resumes, and settings are preserved.
+
+The install folder must be writable by the current user; no elevation is requested. Upgrade from v0.3.0 or earlier once by quitting the old app, extracting v0.4.0 and replacing ResolutionTray.exe. Future updates are automatic. Development builds do not replace themselves. Temporary downloads under %LOCALAPPDATA%\AmdResolutionTray\Updates are cleaned during later checks. Update requests contact GitHub and its download servers; game paths and settings stay local. Checksums verify download integrity, not publisher signatures. To uninstall, disable startup in settings, exit and remove the extracted folder. The custom AMD mode can be removed separately in Adrenalin.
 
 ## Build and validation
 
@@ -57,7 +65,7 @@ dotnet run --project tests/ResolutionTray.Tests -c Release
 .\build.ps1
 ~~~
 
-Close the app before rebuilding into the same output folder. build.ps1 runs 67 deterministic tests (including manifests, executable matching, multiple simultaneous games and cancellation scenarios), publishes a self-contained executable and creates a ZIP plus SHA-256 checksum under artifacts/. GitHub Actions performs the same checks on Windows.
+Close the app before rebuilding into the same output folder. build.ps1 runs 92 deterministic tests (including manifests, executable matching, multiple simultaneous games and cancellation scenarios), publishes a self-contained executable and creates a ZIP plus SHA-256 checksum under artifacts/. GitHub Actions performs the same checks on Windows, plus native updater restart and rollback tests on isolated executable copies.
 
 Experimental first version: mode creation/application and automatic restoration were verified on a Radeon RX 7800 XT with a MSI MAG272CQR at 144 Hz. Two other connected displays retained their original settings after restoration. This does not establish compatibility with every monitor or validate CS2 rendering. Multi-game selection is covered by automated tests. Real Steam/Epic scanning, search, checkbox selection and rescan retention were verified. Newly selected games still need validation on each installation.
 

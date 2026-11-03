@@ -4,7 +4,7 @@ using ResolutionTray.Services;
 
 namespace ResolutionTray.UI;
 
-internal sealed class TrayContext : ApplicationContext
+internal sealed partial class TrayContext : ApplicationContext
 {
     private readonly WindowsDisplayBackend backend = new();
     private readonly ProfileController controller;
@@ -28,14 +28,14 @@ internal sealed class TrayContext : ApplicationContext
     private bool openSettings;
     private bool exiting;
 
-    internal TrayContext(bool showSettings)
+    internal TrayContext(bool showSettings, Guid? updated = null, bool resumeMonitoring = false)
     {
         settings = SettingsStore.Load();
         game.Update(settings.GameList);
         openSettings = showSettings || settings.DisplayIdentity is null;
         controller = new ProfileController(backend, new RecoveryStore(), new SafetyMonitor());
         gameMode = new GameModeController(controller, game);
-        menu.Items.AddRange([status, new ToolStripSeparator(), toggle, restore, settingsItem, new ToolStripSeparator(), quit]);
+        menu.Items.AddRange([status, new ToolStripSeparator(), toggle, restore, settingsItem, updateItem, new ToolStripSeparator(), quit]);
         tray = new NotifyIcon { Icon = gray, Text = "AMD Resolution Tray — Désactivé", ContextMenuStrip = menu, Visible = true };
         tray.MouseDoubleClick += async (_, e) => { if (e.Button == MouseButtons.Left) await ToggleAsync(); };
         toggle.Click += async (_, _) => await ToggleAsync();
@@ -43,6 +43,7 @@ internal sealed class TrayContext : ApplicationContext
         settingsItem.Click += async (_, _) => await OpenSettingsAsync();
         quit.Click += async (_, _) => await QuitAsync();
         poll.Tick += async (_, _) => await TickAsync();
+        InitializeUpdates(updated, resumeMonitoring);
         poll.Interval = 100;
         poll.Start();
     }
@@ -57,16 +58,24 @@ internal sealed class TrayContext : ApplicationContext
             if (!initialized)
             {
                 initialized = true; poll.Interval = 1000;
+                AcknowledgeUpdateStartup();
                 if (controller.Session is not null)
                 {
-                    var result = MessageBox.Show("Une session précédente n'a pas été restaurée. Restaurer les réglages sauvegardés ?",
-                        "Resolution Tray — Récupération", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    DialogResult result;
+                    SetWorking(true);
+                    try
+                    {
+                        result = MessageBox.Show("Une session précédente n'a pas été restaurée. Restaurer les réglages sauvegardés ?",
+                            "Resolution Tray — Récupération", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    }
+                    finally { SetWorking(false); }
                     if (result == DialogResult.Yes) await RestoreAsync();
                 }
                 if (openSettings && controller.Session is null) { openSettings = false; await OpenSettingsAsync(); }
             }
             if (!working && gameMode.Enabled) await SynchronizeGameAsync();
             if (!working) await RefreshAsync();
+            if (!working && !exiting) await UpdateTickAsync();
         }
         catch (Exception ex) { poll.Stop(); SetInactive("Erreur — voir le journal"); Program.ShowError(ex); }
     }
@@ -169,6 +178,7 @@ internal sealed class TrayContext : ApplicationContext
             {
                 settings = dialog.Result;
                 game.Update(settings.GameList);
+                UpdateSettingsChanged();
                 activateAfter = dialog.ActivateRequested || wasEnabled;
             }
         }
@@ -216,6 +226,7 @@ internal sealed class TrayContext : ApplicationContext
     {
         if (disposing)
         {
+            DisposeUpdates();
             poll.Dispose(); tray.Dispose(); menu.Dispose(); gray.Dispose(); green.Dispose();
             settingsSignal.Dispose(); quitSignal.Dispose();
         }
