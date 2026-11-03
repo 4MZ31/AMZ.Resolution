@@ -10,7 +10,7 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox startup = new() { Text = "Lancer avec Windows (sans activer le profil)", AutoSize = true };
     private readonly Label details = new() { AutoSize = false, Height = 78, Dock = DockStyle.Fill };
     private readonly Button save = new() { Text = "Enregistrer", AutoSize = true, Enabled = false };
-    private readonly Button activate = new() { Text = "Enregistrer et activer", AutoSize = true, Enabled = false };
+    private readonly Button activate = new() { Text = "Enregistrer et surveiller", AutoSize = true, Enabled = false };
     private readonly IReadOnlyList<DisplayTarget> targets;
     public AppSettings Result { get; private set; }
     public bool ActivateRequested { get; private set; }
@@ -49,7 +49,7 @@ internal sealed class SettingsForm : Form
         var close = new Button { Text = "Annuler", AutoSize = true, DialogResult = DialogResult.Cancel };
         buttons.Controls.Add(close);
         layout.Controls.Add(buttons);
-        layout.Controls.Add(new Label { Text = "Vert : actif • Gris : désactivé • Double-clic sur l'icône pour basculer", AutoSize = true, ForeColor = Color.DimGray });
+        layout.Controls.Add(new Label { Text = "Vert : résolution active • Gris : en attente ou désactivé", AutoSize = true, ForeColor = Color.DimGray });
         Controls.Add(layout);
         CancelButton = close;
         foreach (var d in targets) displays.Items.Add($"{d.Name} — {d.DeviceName} — {d.CurrentMode.RefreshRate} Hz");
@@ -66,7 +66,7 @@ internal sealed class SettingsForm : Form
     {
         save.Enabled = activate.Enabled = displays.SelectedIndex >= 0;
         details.Text = displays.SelectedIndex >= 0
-            ? $"Profil : 2324 × 1306, centré sans agrandissement.\nFréquence conservée : {targets[displays.SelectedIndex].CurrentMode.RefreshRate} Hz.\nSur une dalle 27 pouces, la zone représente environ 24,5 pouces."
+            ? $"Automatique avec CS2 / CS:GO : 2324 × 1306 centré.\nFréquence conservée : {targets[displays.SelectedIndex].CurrentMode.RefreshRate} Hz.\nSur une dalle 27 pouces, la zone représente environ 24,5 pouces."
             : targets.Count == 0 ? "Aucun écran AMD natif 2560 × 1440 identifié.\nVérifiez le pilote Adrenalin et utilisez le mode Étendre de Windows."
             : "Choisissez l'écran sur lequel appliquer le profil.";
     }

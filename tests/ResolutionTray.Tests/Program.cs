@@ -125,6 +125,7 @@ var cases = new List<(string, Func<Task>)>
         Assert(f.Store.Value is not null, "activation initiale intacte");
     })
 };
+cases.AddRange(GameModeTests.Cases());
 foreach (var stage in new[] { "create", "center", "test", "apply" })
 {
     var failedStage = stage;
@@ -191,14 +192,14 @@ sealed class FakeBackend(List<string> events) : IDisplayBackend
     public bool Connected = true, IgnoreCentering, IgnoreApply, FailRestore, IgnoreRestore;
     public int NativeWidth = 2560;
     public string? FailStage;
-    public Action? BeforeCreate;
+    public Action? BeforeCreate, BeforeTest, BeforeApply;
     public IReadOnlyList<DisplayTarget> GetDisplays() => Connected
         ? [new("monitor", "DISPLAY2", "Generic 1440p", NativeWidth, 1440, Current)] : [];
     public ScalingState GetScaling(string identity) => Scaling;
     public void EnsureCustomMode(string identity, DisplayMode mode) { BeforeCreate?.Invoke(); Stage("create"); }
     public void SetCentered(string identity) { Stage("center"); if (!IgnoreCentering) Scaling = new(true, 2, false); }
-    public void TestMode(string identity, DisplayMode mode) => Stage("test");
-    public void ApplyMode(string identity, DisplayMode mode) { Stage("apply"); if (!IgnoreApply) Current = mode; }
+    public void TestMode(string identity, DisplayMode mode) { BeforeTest?.Invoke(); Stage("test"); }
+    public void ApplyMode(string identity, DisplayMode mode) { BeforeApply?.Invoke(); Stage("apply"); if (!IgnoreApply) Current = mode; }
     public bool Matches(string identity, DisplayMode mode) => Connected && Current == mode;
     public bool IsCentered(string identity) => Scaling.GpuScaling && Scaling.Mode == 2 && Scaling.IntegerScaling is not true;
     public void Restore(RecoverySession session)

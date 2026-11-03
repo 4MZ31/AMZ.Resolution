@@ -64,7 +64,8 @@ internal static class Program
             var backend = new WindowsDisplayBackend();
             result = new
             {
-                Application = "AMD Resolution Tray", Version = "0.1.0", ReadOnly = true,
+                Application = "AMD Resolution Tray", Version = "0.2.0", ReadOnly = true,
+                CounterStrikeRunning = new CounterStrikePresence().IsRunning(),
                 Displays = backend.GetDisplays().Select(display =>
                 {
                     ScalingState? scaling = null;

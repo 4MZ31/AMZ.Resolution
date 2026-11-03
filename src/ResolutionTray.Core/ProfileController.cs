@@ -7,10 +7,11 @@ public sealed class ProfileController(IDisplayBackend backend, IRecoveryStore st
     public bool IsBusy { get; private set; }
     public RecoverySession? Session => store.Load();
 
-    public async Task ActivateAsync(Profile profile)
+    public async Task ActivateAsync(Profile profile, Func<bool>? canApply = null)
     {
         await RunExclusiveAsync(() =>
         {
+            RequirePermission(canApply);
             if (store.Load() is not null)
                 throw new InvalidOperationException("Une session doit être restaurée avant une nouvelle activation.");
             var display = backend.GetDisplays().SingleOrDefault(d => d.Identity == profile.DisplayIdentity)
@@ -32,10 +33,14 @@ public sealed class ProfileController(IDisplayBackend backend, IRecoveryStore st
             try
             {
                 safety.Arm(session.Id);
+                RequirePermission(canApply);
                 backend.EnsureCustomMode(display.Identity, requested);
+                RequirePermission(canApply);
                 backend.SetCentered(display.Identity);
                 backend.TestMode(display.Identity, requested);
+                RequirePermission(canApply);
                 backend.ApplyMode(display.Identity, requested);
+                RequirePermission(canApply);
                 VerifyRequested(session);
             }
             catch (Exception activationError)
@@ -51,12 +56,16 @@ public sealed class ProfileController(IDisplayBackend backend, IRecoveryStore st
         });
     }
 
-    public async Task ConfirmAsync()
+    public Task ConfirmAsync() => ConfirmAsync(null);
+
+    public async Task ConfirmAsync(Func<bool>? canApply)
     {
         await RunExclusiveAsync(() =>
         {
             var session = store.Load() ?? throw new InvalidOperationException("Aucune activation à confirmer.");
+            RequirePermission(canApply);
             VerifyRequested(session);
+            RequirePermission(canApply);
             store.Save(session with { Confirmed = true });
         });
     }
@@ -95,6 +104,12 @@ public sealed class ProfileController(IDisplayBackend backend, IRecoveryStore st
             || backend.GetScaling(session.DisplayIdentity) != session.OriginalScaling)
             throw new InvalidOperationException("La restauration n'est pas complète. Les données de récupération sont conservées.");
         store.Delete();
+    }
+
+    private static void RequirePermission(Func<bool>? canApply)
+    {
+        if (canApply is not null && !canApply())
+            throw new OperationCanceledException("Le jeu est fermé ou la surveillance a été désactivée.");
     }
 
     private async Task RunExclusiveAsync(Action action)

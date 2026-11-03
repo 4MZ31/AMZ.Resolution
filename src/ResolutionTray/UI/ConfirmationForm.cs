@@ -5,7 +5,7 @@ internal sealed class ConfirmationForm : Form
     private readonly System.Windows.Forms.Timer timer = new() { Interval = 1000 };
     private readonly Label countdown = new() { AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(0, 16, 0, 16) };
     private int seconds = 15;
-    internal ConfirmationForm(string? deviceName)
+    internal ConfirmationForm(string? deviceName, Func<bool> isGameRunning)
     {
         Text = "Conserver cet affichage ?";
         Font = new Font("Segoe UI", 10);
@@ -29,10 +29,15 @@ internal sealed class ConfirmationForm : Form
         UpdateCountdown();
         timer.Tick += (_, _) =>
         {
+            if (!isGameRunning()) { DialogResult = DialogResult.Cancel; Close(); return; }
             seconds--; UpdateCountdown();
             if (seconds <= 0) { DialogResult = DialogResult.Cancel; Close(); }
         };
-        Shown += (_, _) => timer.Start();
+        Shown += (_, _) =>
+        {
+            if (isGameRunning()) timer.Start();
+            else { DialogResult = DialogResult.Cancel; Close(); }
+        };
         FormClosed += (_, _) => timer.Stop();
     }
     private void UpdateCountdown() => countdown.Text = $"Retour automatique à l'affichage précédent dans {seconds} secondes.";

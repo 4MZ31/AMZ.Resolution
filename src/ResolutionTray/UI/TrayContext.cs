@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using ResolutionTray.Core;
 using ResolutionTray.Native;
 using ResolutionTray.Services;
@@ -9,6 +8,8 @@ internal sealed class TrayContext : ApplicationContext
 {
     private readonly WindowsDisplayBackend backend = new();
     private readonly ProfileController controller;
+    private readonly IGamePresence game = new CounterStrikePresence();
+    private readonly GameModeController gameMode;
     private readonly NotifyIcon tray;
     private readonly ContextMenuStrip menu = new();
     private readonly ToolStripMenuItem status = new("Désactivé") { Enabled = false };
@@ -32,6 +33,7 @@ internal sealed class TrayContext : ApplicationContext
         settings = SettingsStore.Load();
         openSettings = showSettings || settings.DisplayIdentity is null;
         controller = new ProfileController(backend, new RecoveryStore(), new SafetyMonitor());
+        gameMode = new GameModeController(controller, game);
         menu.Items.AddRange([status, new ToolStripSeparator(), toggle, restore, settingsItem, new ToolStripSeparator(), quit]);
         tray = new NotifyIcon { Icon = gray, Text = "AMD Resolution Tray — Désactivé", ContextMenuStrip = menu, Visible = true };
         tray.MouseDoubleClick += async (_, e) => { if (e.Button == MouseButtons.Left) await ToggleAsync(); };
@@ -53,7 +55,7 @@ internal sealed class TrayContext : ApplicationContext
             if (settingsSignal.WaitOne(0)) { await OpenSettingsAsync(); return; }
             if (!initialized)
             {
-                initialized = true; poll.Interval = 3000;
+                initialized = true; poll.Interval = 1000;
                 if (controller.Session is not null)
                 {
                     var result = MessageBox.Show("Une session précédente n'a pas été restaurée. Restaurer les réglages sauvegardés ?",
@@ -62,16 +64,17 @@ internal sealed class TrayContext : ApplicationContext
                 }
                 if (openSettings && controller.Session is null) { openSettings = false; await OpenSettingsAsync(); }
             }
+            if (!working && gameMode.Enabled) await SynchronizeGameAsync();
             if (!working) await RefreshAsync();
         }
         catch (Exception ex) { poll.Stop(); SetInactive("Erreur — voir le journal"); Program.ShowError(ex); }
     }
 
-    private void SetWorking(bool value)
+    private void SetWorking(bool value, bool showTransition = true)
     {
         working = value;
         toggle.Enabled = restore.Enabled = settingsItem.Enabled = quit.Enabled = !value;
-        if (value) { tray.Icon = gray; status.Text = "Changement en cours…"; }
+        if (value && showTransition) { tray.Icon = gray; status.Text = "Changement en cours…"; }
     }
     private async Task RefreshAsync()
     {
@@ -79,13 +82,18 @@ internal sealed class TrayContext : ApplicationContext
         working = true;
         try
         {
-            var active = await controller.IsActiveAsync();
+            var active = gameMode.Enabled && game.IsRunning() && await controller.IsActiveAsync();
+            active = active && game.IsRunning();
             var session = controller.Session;
             tray.Icon = active ? green : gray;
             status.Text = active ? $"Actif — 2324 × 1306 · {session!.RequestedMode.RefreshRate} Hz"
-                : session is not null ? "Profil interrompu — restauration disponible" : "Désactivé";
+                : session is not null ? "Profil interrompu — restauration disponible"
+                : !gameMode.Enabled ? "Désactivé"
+                : game.IsRunning() ? "Profil non appliqué — réactivez la surveillance"
+                : "En attente de CS2 / CS:GO";
             tray.Text = ("AMD Resolution Tray — " + status.Text)[..Math.Min(63, ("AMD Resolution Tray — " + status.Text).Length)];
-            toggle.Text = session is not null ? "Désactiver et restaurer" : "Activer";
+            toggle.Text = gameMode.Enabled ? "Désactiver la surveillance"
+                : session is not null ? "Restaurer l’affichage précédent" : "Activer la surveillance";
             restore.Visible = session is not null;
         }
         finally { SetWorking(false); settingsItem.Enabled = controller.Session is null; }
@@ -95,43 +103,53 @@ internal sealed class TrayContext : ApplicationContext
     private async Task ToggleAsync()
     {
         if (working) return;
-        if (controller.Session is not null) { await RestoreAsync(); return; }
+        if (gameMode.Enabled || controller.Session is not null) { await RestoreAsync(); return; }
         if (settings.DisplayIdentity is null) { await OpenSettingsAsync(); return; }
-        SetWorking(true);
+        gameMode.Enable();
+        await SynchronizeGameAsync();
+        await RefreshAsync();
+    }
+
+    private async Task SynchronizeGameAsync()
+    {
+        if (working || !gameMode.Enabled || settings.DisplayIdentity is null) return;
+        SetWorking(true, showTransition: false);
         try
         {
-            var display = (await Task.Run(backend.GetDisplays)).SingleOrDefault(d => d.Identity == settings.DisplayIdentity)
-                ?? throw new InvalidOperationException("L'écran sélectionné est déconnecté.");
-            var fingerprint = $"{display.Identity}|{display.CurrentMode.RefreshRate}|{display.DriverVersion}";
-            await controller.ActivateAsync(new Profile(settings.DisplayIdentity));
-            if (settings.VerifiedProfile == fingerprint) await controller.ConfirmAsync();
-            else
+            string? verified = null;
+            await gameMode.SynchronizeAsync(new Profile(settings.DisplayIdentity), async session =>
             {
-                using var confirmation = new ConfirmationForm(display.DeviceName);
-                if (confirmation.ShowDialog() == DialogResult.OK)
-                {
-                    await controller.ConfirmAsync();
-                    settings = settings with { VerifiedProfile = fingerprint };
-                    SettingsStore.Save(settings);
-                }
-                else await controller.RestoreAsync();
+                if (!game.IsRunning()) return false;
+                var display = (await Task.Run(backend.GetDisplays)).SingleOrDefault(d => d.Identity == session.DisplayIdentity)
+                    ?? throw new InvalidOperationException("L'écran sélectionné est déconnecté.");
+                var fingerprint = $"{display.Identity}|{session.RequestedMode.RefreshRate}|{display.DriverVersion}";
+                if (settings.VerifiedProfile == fingerprint) return true;
+                using var confirmation = new ConfirmationForm(display.DeviceName, game.IsRunning);
+                if (confirmation.ShowDialog() != DialogResult.OK || !game.IsRunning()) return false;
+                verified = fingerprint;
+                return true;
+            });
+            if (verified is not null && controller.Session is { Confirmed: true })
+            {
+                settings = settings with { VerifiedProfile = verified };
+                SettingsStore.Save(settings);
             }
         }
         catch (Exception ex)
         {
-            // This also covers failure opening the confirmation dialog or confirming a changed mode.
-            try { if (controller.Session is not null) await controller.RestoreAsync(); }
+            // Fail once, restore if possible, and require an explicit re-enable after an error.
+            try { await gameMode.DisableAsync(); }
             catch (Exception recovery) { AppStorage.Log(recovery); }
             Program.ShowError(ex);
         }
-        finally { SetWorking(false); await RefreshAsync(); }
+        finally { SetWorking(false); }
     }
 
     private async Task RestoreAsync()
     {
         if (working) return;
         SetWorking(true);
-        try { await controller.RestoreAsync(); }
+        try { await gameMode.DisableAsync(); }
         catch (Exception ex) { Program.ShowError(ex); }
         finally { SetWorking(false); await RefreshAsync(); }
     }
@@ -149,8 +167,12 @@ internal sealed class TrayContext : ApplicationContext
         }
         catch (Exception ex) { Program.ShowError(ex); }
         finally { SetWorking(false); }
-        if (activateAfter) await ToggleAsync();
-        else await RefreshAsync();
+        if (activateAfter)
+        {
+            gameMode.Enable();
+            await SynchronizeGameAsync();
+        }
+        await RefreshAsync();
     }
 
     private async Task QuitAsync()
@@ -159,7 +181,7 @@ internal sealed class TrayContext : ApplicationContext
         SetWorking(true);
         try
         {
-            await controller.RestoreAsync();
+            await gameMode.DisableAsync();
             exiting = true; poll.Stop(); tray.Visible = false; ExitThread();
         }
         catch (Exception ex) { Program.ShowError(ex); SetWorking(false); await RefreshAsync(); }
