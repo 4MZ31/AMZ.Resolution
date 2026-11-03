@@ -42,6 +42,10 @@ La v0.6.0 réorganise les paramètres en trois espaces, accessibles depuis la na
 
 Le changement de thème est immédiat dans la fenêtre. **Enregistrer** ou **Enregistrer et activer** mémorise ce choix ; **Annuler** rétablit le thème enregistré. Les couleurs de contraste élevé de Windows ont priorité sur la palette de l’application.
 
+À partir de la **v0.6.1**, les vues principales utilisent des barres de défilement fines et des menus déroulants dessinés dans le thème actif. Les menus affichent une coche sur la valeur choisie ; les flèches, Début/Fin et Page précédente/suivante déplacent le choix, Entrée valide et Échap annule. Les longues listes défilent avec la même poignée. L’en-tête du tableau couvre toute sa largeur, y compris à droite, sans bandeau système blanc. Les séparateurs des colonnes permettent d’ajuster leur répartition.
+
+La recherche possède son propre champ avec icône, focus visible et bouton **Effacer la recherche**. Échap efface d’abord une saisie non vide ; quand la recherche est vide, Échap garde son rôle de fermeture des paramètres. Effacer la recherche ou changer le filtre ne décoche pas les jeux.
+
 Le pied de fenêtre reste visible dans chaque espace : résolution/fréquence, modifications non enregistrées ou raison bloquant l’enregistrement. **Voir** ramène au réglage à terminer. Les choix de jeux et d’affichage sont conservés quand on change de page ou de filtre. **Ctrl+1/2/3** change d’espace, **Ctrl+F** ouvre la recherche de jeux et **Ctrl+S** enregistre les réglages valides.
 
 La refonte suit les neuf passes d’[Unslop](https://github.com/heydamir/unslop), créé par **Damir Sokolovsky (@heydamir)** : rythme d’espacement de 4 px, palettes graphite sombre/clair, glyphes cohérents, libellés directs, typographie Segoe UI, navigation par tâche, focus et états explicites, aperçu de dalle dessiné en code et mouvement réservé au scan ou au compte à rebours. La méthode est adaptée à WinForms ; aucune image générée ni animation décorative n’est utilisée. Attribution et licences des éléments adaptés : [notices tierces](docs/THIRD-PARTY-NOTICES.txt).

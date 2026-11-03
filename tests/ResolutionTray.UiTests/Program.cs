@@ -15,11 +15,12 @@ internal static class Program
     [STAThread]
     private static int Main()
     {
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2); Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
         var before = UserSettings(); var recoveryBefore = RecoveryBytes();
         try
         {
-            NavigationAndSelection(); DisplayAndCustom(); InvalidAndCancel(); Themes(); Dialogs();
+            NavigationAndSelection(); DisplayAndCustom(); InvalidAndCancel(); Themes(); Dialogs(); CustomControls();
             Assert(UserSettings() == before && RecoveryBytes() == recoveryBefore, "aucun changement des paramètres ou du journal utilisateur");
             Console.WriteLine($"{passed} contrôles UI réussis, sans changement d’affichage ni écriture des préférences."); return 0;
         }
@@ -134,6 +135,55 @@ internal static class Program
         {
             Show(form); Assert(Find<Label>(form,"confirmationCountdown").Text.Contains("15 s"), "délai de sécurité de 15 secondes visible");
             Click(form,"restoreProfile"); Assert(form.DialogResult==DialogResult.Cancel, "restauration explicite conserve le résultat d’annulation");
+        }
+    }
+    private static void CustomControls()
+    {
+        using(var form=new SettingsForm(Settings,[Display],false))
+        {
+            Show(form); var search=Find<TextBox>(form,"searchGames"); search.Text="Fortnite"; Application.DoEvents();
+            Assert(Find<Button>(form,"clearSearch").Visible && Find<ListView>(form,"gameLibrary").Items.Count==1,"recherche personnalisée affiche l’effacement");
+            Click(form,"clearSearch"); Assert(search.TextLength==0 && Find<ListView>(form,"gameLibrary").Items.Count==3,"effacer restaure le catalogue sans perdre les jeux");
+            search.Text="Counter";
+            object[] arguments=[Message.Create(search.Handle,0,0,0),Keys.Escape];
+            var handled=(bool)typeof(SearchTextBox).GetMethod("ProcessCmdKey",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(search,arguments)!;
+            Assert(handled && search.TextLength==0 && form.Visible,"Échap efface la recherche avant de fermer la fenêtre");
+            var source=Find<ThemedComboBox>(form,"gameSource");var original=source.SelectedIndex;
+            NativeScrolling.SendMessage(source.Handle,0x0201,1,12|(12<<16));NativeScrolling.SendMessage(source.Handle,0x0202,0,12|(12<<16));Application.DoEvents();
+            Assert(source.IsPopupOpen && !source.DroppedDown && source.ChoiceList!.AccessibilityObject.GetChildCount()==4,"menu personnalisé remplace le popup natif et expose ses options");
+            source.ChoiceList!.HandleKey(Keys.End);source.ChoiceList.HandleKey(Keys.Escape);Application.DoEvents();
+            Assert(!source.IsPopupOpen && source.SelectedIndex==original,"Échap ferme le menu sans changer la sélection");
+            source.OpenChoices();Application.DoEvents();source.ChoiceList!.HandleKey(Keys.Down);source.ChoiceList.HandleKey(Keys.Enter);Application.DoEvents();
+            Assert(!source.IsPopupOpen && source.SelectedIndex==1,"flèche et Entrée valident l’option personnalisée");
+            Click(form,"nav1");var resolutions=Find<ThemedComboBox>(form,"gameResolution");resolutions.OpenChoices();Application.DoEvents();
+            resolutions.ChoiceList!.HandleKey(Keys.End);Application.DoEvents();
+            Assert(resolutions.ChoiceList.FirstVisible>0 && resolutions.ChoiceList.ActiveIndex==resolutions.Items.Count-1,"menu long défile jusqu’à la dernière option au clavier");
+            var choicePanel=(ChoicePanel)resolutions.ChoiceList.Parent!;
+            Assert(choicePanel.Bar.Visible && choicePanel.Bar.Maximum>0,"menu long utilise la barre personnalisée");
+            UiTheme.SetDarkMode(false);Application.DoEvents();
+            Assert(choicePanel.BackColor==UiTheme.Surface,"popup ouvert suit le thème clair");
+            resolutions.CloseChoices();form.Close();
+        }
+        var many=Settings with {Games=Enumerable.Range(0,80).Select(i=>new GameEntry("test"+i,"Jeu "+i.ToString("D2"),"Manuel",@"C:\Games",[@"C:\Games\game"+i+".exe"],[],i==0)).ToArray()};
+        using(var form=new SettingsForm(many,[Display],false))
+        {
+            Show(form);var list=Find<GameListView>(form,"gameLibrary");var bar=Find<SlimScrollBar>(form,"gameScroll");Application.DoEvents();
+            Assert(list.HeaderStyle==ColumnHeaderStyle.None && form.Controls.Find("gameHeader",true).Length==1,"en-tête personnalisé couvre aussi la zone terminale du tableau");
+            Assert(bar.Visible && bar.Maximum>0 && list.Width-NativeScrolling.ScrollbarWidth(list.DeviceDpi)>=list.Parent!.ClientSize.Width,"grande bibliothèque utilise exclusivement le défilement personnalisé");
+            bar.Value=bar.Maximum;Application.DoEvents();
+            Assert(list.TopItem is not null && list.TopItem.Index>0 && list.Items[^1].Bounds.Bottom<=list.ClientSize.Height,"poignée permet d’atteindre le dernier jeu");
+            list.EnsureVisible(0);Application.DoEvents();Assert(bar.Value==0,"navigation native et poignée restent synchronisées");
+            form.ClientSize=new Size(1040,680);Application.DoEvents();bar.Value=bar.Maximum;Application.DoEvents();
+            Assert(list.Width-NativeScrolling.ScrollbarWidth(list.DeviceDpi)>=list.Parent!.ClientSize.Width && list.Items[^1].Bounds.Bottom<=list.ClientSize.Height,"redimensionnement conserve la dernière ligne accessible sans chrome blanc");
+            Click(form,"nav2");var page=form.Controls.Find("pageScroll",true).OfType<SlimScrollBar>().First(b=>b.Visible);page.Value=page.Maximum;Application.DoEvents();
+            Assert(page.Value==page.Maximum && !((ScrollableControl)page.Parent!).AutoScroll,"page Application défile sans barre système");form.Close();
+        }
+        using(var bar=new SlimScrollBar())
+        {
+            bar.SetRange(100,10);bar.Value=int.MaxValue;Assert(bar.Value==90,"poignée borne les valeurs hors plage");
+            bar.SetRange(5,10);Assert(bar.Value==0 && bar.Maximum==0,"poignée réinitialisée quand le contenu tient dans la vue");
+            bar.SetRange(100,10);bar.Value=30;bar.Wheel(-30);Assert(bar.Value==30,"petit delta de pavé tactile conservé avant un cran complet");
+            bar.Wheel(-30);bar.Wheel(-30);bar.Wheel(-30);Assert(bar.Value>30,"deltas de pavé tactile cumulés sans perte de défilement");
         }
     }
     private static void CheckButtons(Control control)

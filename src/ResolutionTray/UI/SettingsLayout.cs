@@ -115,7 +115,7 @@ internal sealed partial class SettingsForm
         library.Columns.Add("Jeu", 320); library.Columns.Add("Source", 112); library.Columns.Add("État", 144); library.AccessibleName = "Jeux installés à surveiller";
         var listArea = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty, BackColor = UiTheme.Surface };
         empty.TextAlign = ContentAlignment.MiddleCenter; empty.Font = UiTheme.Font(11); empty.BackColor = UiTheme.Surface;
-        listArea.Controls.Add(library); listArea.Controls.Add(empty); content.Controls.Add(listArea);
+        listArea.Controls.Add(new NativeListHost(library)); listArea.Controls.Add(empty); content.Controls.Add(listArea);
         var selected = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Padding = new Padding(0, 16, 0, 0), Margin = Padding.Empty };
         selected.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         selected.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); selected.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 168));
@@ -145,7 +145,7 @@ internal sealed partial class SettingsForm
 
     private Control BuildApplication()
     {
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = Padding.Empty };
+        var scroll = new ScrollViewport { Dock = DockStyle.Fill, Margin = Padding.Empty };
         var layout = UiTheme.Stack(88, 256, 20, 144, 20, 100);
         layout.Controls.Add(PageHeader("Application", "Un utilitaire discret, prêt quand vous jouez"));
         var preferences = new SurfacePanel { Dock = DockStyle.Fill };
@@ -164,7 +164,7 @@ internal sealed partial class SettingsForm
         var info = UiTheme.Stack(24, 28); info.Controls.Add(UiTheme.Label($"ResolutionTray {GitHubUpdateClient.CurrentVersion.ToString(3)} · Windows x64", 11, true));
         var releases = new LinkLabel { Text = "Voir les versions sur GitHub", Dock = DockStyle.Fill, LinkColor = UiTheme.Green, LinkBehavior = LinkBehavior.HoverUnderline, TextAlign = ContentAlignment.MiddleLeft };
         releases.LinkClicked += (_, _) => { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/4MZ31/amd-resolution-tray/releases") { UseShellExecute = true }); } catch (Exception ex) { Program.ShowError(ex); } };
-        info.Controls.Add(releases); about.Controls.Add(info); layout.Controls.Add(about); scroll.Controls.Add(layout); return scroll;
+        info.Controls.Add(releases); about.Controls.Add(info); layout.Controls.Add(about); scroll.SetContent(layout); return scroll;
     }
     private static Control Preference(string title, string description, CheckBox option)
     {

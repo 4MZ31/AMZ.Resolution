@@ -23,6 +23,8 @@ Version 0.6.0 separates settings into **Jeux** (games), **Affichage** (display) 
 
 **Dark mode is the default**, including upgrades from older settings. Under Application, turn **Mode sombre** off for the light theme. Changes preview immediately across the window. Save persists the choice; Cancel restores the saved theme. Windows high-contrast colors take priority. The footer keeps the profile and save actions visible and explains incomplete configuration.
 
+From **v0.6.1**, the main views use themed slim scrollbars and custom dropdown popups with a checkmark for the selected option. Arrow keys, Home/End and Page Up/Down navigate; Enter commits and Escape cancels. Long menus use the same custom scrollbar. The game table header spans the full width with no white native corner; its dividers redistribute column widths. Search has its own icon, focus feedback and clear button. Escape clears a non-empty query before closing settings; clearing/filtering preserves checked games.
+
 Ctrl+1/2/3 navigates between pages, Ctrl+F focuses game search, Ctrl+S saves valid settings, Space checks a game and F2 opens executable configuration. The scan and display confirmation retain their functional progress/countdown; there is no decorative looping motion.
 
 The interface follows the nine-pass [Unslop](https://github.com/heydamir/unslop) method by **Damir Sokolovsky (@heydamir)**, adapted to native WinForms: spacing, color, glyphs, copy, type, task layout, interaction details, a code-drawn panel preview and purposeful motion. Adaptation credits and icon licenses are in [third-party notices](THIRD-PARTY-NOTICES.txt).

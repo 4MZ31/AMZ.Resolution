@@ -60,7 +60,8 @@ internal static class UiTheme
     }
     internal static Control Field(Control control, string? name = null)
     {
-        var frame = new FieldFrame { Dock = DockStyle.Fill, Padding = new Padding(12, 8, 12, 4), Margin = new Padding(0, 0, 0, 4) };
+        FieldFrame frame = control is TextBox input && name == "searchGames" ? new SearchField(input) : new FieldFrame { Padding = new Padding(12, 8, 12, 4) };
+        frame.Dock = DockStyle.Fill; frame.Margin = new Padding(0, 0, 0, 4);
         control.Dock = DockStyle.Fill; control.Margin = Padding.Empty; control.BackColor = Surface; control.ForeColor = Ink; control.Font = Font();
         if (name is not null)
         {
@@ -91,7 +92,9 @@ internal static class UiTheme
     }
     internal static GraphicsPath Round(RectangleF r, float radius)
     {
-        var path = new GraphicsPath(); var d = Math.Min(radius * 2, Math.Min(r.Width, r.Height));
+        // A native child can request its parent background during a zero-size layout transition.
+        r.Width = Math.Max(1, r.Width); r.Height = Math.Max(1, r.Height);
+        var path = new GraphicsPath(); var d = Math.Max(1, Math.Min(radius * 2, Math.Min(r.Width, r.Height)));
         path.AddArc(r.Left, r.Top, d, d, 180, 90); path.AddArc(r.Right - d, r.Top, d, d, 270, 90);
         path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); path.AddArc(r.Left, r.Bottom - d, d, d, 90, 90);
         path.CloseFigure(); return path;
@@ -116,7 +119,7 @@ internal static class UiTheme
     }
 }
 
-internal enum UiGlyph { None, Game, Monitor, Sliders, Search, Plus, Scan, Check, Frame }
+internal enum UiGlyph { None, Game, Monitor, Sliders, Search, Plus, Scan, Check, Frame, Close }
 internal static class Glyphs
 {
     internal static void Draw(Graphics graphics, UiGlyph glyph, Rectangle bounds, Color color)
@@ -150,6 +153,7 @@ internal static class Glyphs
                 Line(3, 12, 8, 12); Line(12, 12, 21, 12); Line(8, 10, 8, 14);
                 Line(3, 19, 12, 19); Line(16, 19, 21, 19); Line(16, 17, 16, 21); break;
             case UiGlyph.Search: graphics.DrawEllipse(pen, 3, 3, 13, 13); Line(16, 16, 21, 21); break;
+            case UiGlyph.Close: Line(6,6,18,18); Line(18,6,6,18); break;
             case UiGlyph.Plus: Line(12, 5, 12, 19); Line(5, 12, 19, 12); break;
             case UiGlyph.Scan:
                 Line(3, 8, 3, 3); Line(3, 3, 8, 3); Line(16, 3, 21, 3); Line(21, 3, 21, 8);
@@ -220,7 +224,7 @@ internal sealed class SurfacePanel : Panel
         using var pen = new Pen(UiTheme.Line); e.Graphics.DrawPath(pen, path);
     }
 }
-internal sealed class FieldFrame : Panel
+internal class FieldFrame : Panel
 {
     internal FieldFrame() { DoubleBuffered = true; BackColor = UiTheme.Surface; }
     protected override void OnPaintBackground(PaintEventArgs e)
@@ -234,26 +238,6 @@ internal sealed class FieldFrame : Panel
         base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         using var path = UiTheme.Round(new RectangleF(0.5f, 0.5f, Width - 1, Height - 1), 8 * DeviceDpi / 96f);
         using var pen = new Pen(ContainsFocus ? UiTheme.Green : UiTheme.Line, ContainsFocus ? 2 : 1); e.Graphics.DrawPath(pen, path);
-    }
-}
-
-/// <summary>Native selection, keyboard and accessibility; only the closed face is painted.</summary>
-internal sealed class ThemedComboBox : ComboBox
-{
-    protected override void WndProc(ref Message message)
-    {
-        base.WndProc(ref message);
-        if (message.Msg != 0x000F || !IsHandleCreated) return;
-        using var graphics = Graphics.FromHwnd(Handle);
-        using var surface = new SolidBrush(UiTheme.Surface); graphics.FillRectangle(surface, ClientRectangle);
-        var s = DeviceDpi / 96f;
-        var text = new Rectangle((int)(4*s), 0, Math.Max(0, Width-(int)(28*s)), Height);
-        TextRenderer.DrawText(graphics, SelectedItem?.ToString() ?? "", Font, text, Enabled ? UiTheme.Ink : UiTheme.Muted,
-            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
-        graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(UiTheme.Secondary, 1.5f*s) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-        var x=Width-12*s; var y=Height/2f;
-        graphics.DrawLines(pen, [new PointF(x-3*s,y-1*s),new PointF(x,y+2*s),new PointF(x+3*s,y-1*s)]);
     }
 }
 
@@ -280,6 +264,27 @@ internal sealed class ToggleSwitch : CheckBox
 
 internal sealed class GameListView : ListView
 {
+    internal event Action? ViewportChanged;
+    private bool viewportQueued;
+    internal void QueueViewportUpdate()
+    {
+        if(viewportQueued || !IsHandleCreated || IsDisposed || Disposing) return;
+        viewportQueued=true;
+        BeginInvoke((Action)(()=>
+        {
+            try
+            {
+                if(IsDisposed || Disposing || !IsHandleCreated)return;
+                ViewportChanged?.Invoke();
+            }
+            finally { viewportQueued=false; }
+        }));
+    }
+    protected override void WndProc(ref Message message)
+    {
+        base.WndProc(ref message);
+        if(message.Msg is 0x0005 or 0x0100 or 0x0115 or 0x0114 or 0x020A or 0x1007 or 0x104D or 0x1008 or 0x1009 or 0x1014 or 0x1013) QueueViewportUpdate();
+    }
     private readonly ImageList rowSizing = new() { ImageSize = new Size(1, 44), ColorDepth = ColorDepth.Depth32Bit };
     internal GameListView()
     {

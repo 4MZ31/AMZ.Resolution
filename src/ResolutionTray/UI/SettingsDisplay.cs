@@ -39,7 +39,7 @@ internal sealed partial class SettingsForm
         var columns = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
         columns.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         columns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); columns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        var leftScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(0, 0, 12, 0) };
+        var leftScroll = new ScrollViewport { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 12, 0) };
         var settings = new SurfacePanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
         displayFields = UiTheme.Stack(20, 44, 20, 20, 44, 0, 20, 20, 44, 44, 12, 40, 84);
         displayFields.Controls.Add(UiTheme.Label("Écran", 9, true));
@@ -60,8 +60,8 @@ internal sealed partial class SettingsForm
         if (checkDisplay is ActionButton check) check.Glyph = UiGlyph.Monitor;
         displayFields.Controls.Add(checkDisplay);
         compatibility.Name = "compatibilityStatus"; compatibility.Padding = new Padding(0, 12, 0, 0); compatibility.TextAlign = ContentAlignment.TopLeft;
-        displayFields.Controls.Add(compatibility); settings.Controls.Add(displayFields); leftScroll.Controls.Add(settings); columns.Controls.Add(leftScroll);
-        var rightScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Margin = new Padding(12, 0, 0, 0) };
+        displayFields.Controls.Add(compatibility); settings.Controls.Add(displayFields); leftScroll.SetContent(settings); columns.Controls.Add(leftScroll);
+        var rightScroll = new ScrollViewport { Dock = DockStyle.Fill, Margin = new Padding(12, 0, 0, 0) };
         var view = new SurfacePanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
         var content = UiTheme.Stack(28, 256, 8, 96, 16, 52);
         content.Controls.Add(UiTheme.Label("Votre zone de jeu", 12, true));
@@ -75,7 +75,7 @@ internal sealed partial class SettingsForm
         horizontalValue.Font = verticalValue.Font = UiTheme.Figures(9);
         content.Controls.Add(facts); content.Controls.Add(new Panel());
         displayInfo.Text = "Le bureau retrouve sa résolution et sa fréquence à la fermeture du dernier jeu";
-        displayInfo.Font = UiTheme.Font(9); content.Controls.Add(displayInfo); view.Controls.Add(content); rightScroll.Controls.Add(view); columns.Controls.Add(rightScroll);
+        displayInfo.Font = UiTheme.Font(9); content.Controls.Add(displayInfo); view.Controls.Add(content); rightScroll.SetContent(view); columns.Controls.Add(rightScroll);
         layout.Controls.Add(columns); return layout;
     }
 

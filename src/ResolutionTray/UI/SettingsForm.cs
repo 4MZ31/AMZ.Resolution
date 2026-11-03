@@ -13,7 +13,7 @@ internal sealed partial class SettingsForm : Form
     private readonly CheckBox automaticUpdates = new ToggleSwitch { Name = "automaticUpdates", AccessibleName = "Mises à jour automatiques" };
     private readonly GameListView library = new() { Dock = DockStyle.Fill, View = View.Details, CheckBoxes = true,
         FullRowSelect = true, MultiSelect = false, HideSelection = false, BorderStyle = BorderStyle.None, ShowItemToolTips = true };
-    private readonly TextBox search = new() { Dock = DockStyle.Fill, PlaceholderText = "Rechercher un jeu…", BorderStyle = BorderStyle.FixedSingle };
+    private readonly TextBox search = new SearchTextBox() { Dock = DockStyle.Fill, PlaceholderText = "Rechercher un jeu…", BorderStyle = BorderStyle.FixedSingle };
     private readonly ComboBox source = new ThemedComboBox() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
     private readonly Label summary = UiTheme.Label("");
     private readonly Label detail = UiTheme.Label("Sélectionnez un jeu pour consulter son exécutable.");
@@ -110,7 +110,7 @@ internal sealed partial class SettingsForm : Form
         var scale = DeviceDpi / 96f;
         library.Columns[1].Width = (int)(112 * scale);
         library.Columns[2].Width = (int)(144 * scale);
-        library.Columns[0].Width = Math.Max((int)(180 * scale), library.ClientSize.Width - library.Columns[1].Width - library.Columns[2].Width - (int)(24 * scale));
+        library.Columns[0].Width = Math.Max((int)(180 * scale), (library.Parent?.ClientSize.Width ?? library.ClientSize.Width) - library.Columns[1].Width - library.Columns[2].Width);
     }
     private GameEntry? SelectedGame() => library.SelectedItems.Count == 1
         ? games.FirstOrDefault(g => g.Id == library.SelectedItems[0].Tag?.ToString()) : null;
