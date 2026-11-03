@@ -16,16 +16,7 @@ public sealed class ProfileController(IDisplayBackend backend, IRecoveryStore st
                 throw new InvalidOperationException("Une session doit être restaurée avant une nouvelle activation.");
             var display = backend.GetDisplays().SingleOrDefault(d => d.Identity == profile.DisplayIdentity)
                 ?? throw new InvalidOperationException("L'écran sélectionné est déconnecté.");
-            if (display.NativeWidth != 2560 || display.NativeHeight != 1440 || display.CurrentMode.Orientation != 0)
-                throw new InvalidOperationException("Sélectionnez un écran natif 2560 × 1440 en orientation paysage.");
-            var hz = profile.RefreshRate == 0 ? display.CurrentMode.RefreshRate : profile.RefreshRate;
-            if (hz < 24)
-                throw new InvalidOperationException("La fréquence de l'écran est invalide.");
-            var requested = display.CurrentMode with
-            {
-                Width = Profile.Width, Height = Profile.Height, RefreshRate = hz,
-                Orientation = 0, Flags = 0
-            };
+            var requested = DisplayProfiles.Resolve(profile, display);
             var session = new RecoverySession(Guid.NewGuid(), display.Identity, display.CurrentMode,
                 backend.GetScaling(display.Identity), requested);
             // Persist and start the independent recovery process BEFORE touching the driver.
@@ -54,6 +45,14 @@ public sealed class ProfileController(IDisplayBackend backend, IRecoveryStore st
                 throw;
             }
         });
+    }
+
+    /// <summary>Explicit settings test: always restore, even after visual acceptance or an exception.</summary>
+    public async Task<bool> TestAsync(Profile profile, Func<RecoverySession, Task<bool>> confirm, Func<bool>? canApply = null)
+    {
+        await ActivateAsync(profile, canApply);
+        try { return await confirm(Session!) && (canApply?.Invoke() ?? true); }
+        finally { await RestoreAsync(); }
     }
 
     public Task ConfirmAsync() => ConfirmAsync(null);

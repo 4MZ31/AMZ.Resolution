@@ -4,7 +4,7 @@ using ResolutionTray.Services;
 
 namespace ResolutionTray.UI;
 
-internal sealed class SettingsForm : Form
+internal sealed partial class SettingsForm : Form
 {
     private readonly IReadOnlyList<DisplayTarget> targets;
     private readonly List<GameEntry> games;
@@ -33,10 +33,12 @@ internal sealed class SettingsForm : Form
     public AppSettings Result { get; private set; }
     public bool ActivateRequested { get; private set; }
 
-    internal SettingsForm(AppSettings settings, IReadOnlyList<DisplayTarget> allDisplays, bool saveChanges = true)
+    internal SettingsForm(AppSettings settings, IReadOnlyList<DisplayTarget> allDisplays, bool saveChanges = true,
+        Func<Profile, Func<bool>, Task<bool>>? testProfile = null)
     {
         Result = settings;
         this.saveChanges = saveChanges;
+        this.testProfile = testProfile;
         games = settings.GameList.ToList();
         targets = allDisplays.Where(d => d.NativeWidth == 2560 && d.NativeHeight == 1440).ToArray();
         Text = $"AMD Resolution Tray — Vos jeux · v{GitHubUpdateClient.CurrentVersion.ToString(3)}";
@@ -44,8 +46,8 @@ internal sealed class SettingsForm : Form
         ForeColor = UiTheme.Ink;
         BackColor = UiTheme.Background;
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(1140, 720);
-        MinimumSize = new Size(1020, 650);
+        ClientSize = new Size(1140, 820);
+        MinimumSize = new Size(1020, 740);
         StartPosition = FormStartPosition.CenterScreen;
         var outer = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 1, RowCount = 3 };
         outer.RowStyles.Add(new RowStyle(SizeType.Absolute, 94));
@@ -77,10 +79,7 @@ internal sealed class SettingsForm : Form
         CancelButton = cancel;
         startup.Checked = StartupRegistration.IsEnabled;
         automaticUpdates.Checked = settings.AutoUpdate;
-        foreach (var display in targets) displays.Items.Add($"{display.Name} · {display.CurrentMode.RefreshRate} Hz");
-        var selected = targets.ToList().FindIndex(d => d.Identity == settings.DisplayIdentity);
-        displays.SelectedIndex = selected >= 0 ? selected : targets.Count == 1 ? 0 : -1;
-        displays.SelectedIndexChanged += (_, _) => UpdateButtons();
+        InitializeDisplay(settings);
         search.TextChanged += (_, _) => RenderLibrary();
         source.SelectedIndexChanged += (_, _) => RenderLibrary();
         library.ItemCheck += CheckGame;
@@ -92,7 +91,7 @@ internal sealed class SettingsForm : Form
         scan.Click += async (_, _) => { if (scanCancellation is not null) scanCancellation.Cancel(); else await ScanAsync(); };
         save.Click += (_, _) => Save(false);
         activate.Click += (_, _) => Save(true);
-        FormClosing += (_, _) => scanCancellation?.Cancel();
+        FormClosing += (_, e) => { if (testingDisplay) e.Cancel = true; else scanCancellation?.Cancel(); };
         RenderLibrary();
         UpdateButtons();
         if (settings.Games is null) Shown += async (_, _) => await ScanAsync();
@@ -139,31 +138,6 @@ internal sealed class SettingsForm : Form
         info.Controls.Add(detail);
         info.Controls.Add(configure);
         card.Controls.Add(info);
-        return card;
-    }
-
-    private Control BuildDisplay()
-    {
-        var card = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(20),
-            ColumnCount = 1, RowCount = 8, Margin = Padding.Empty };
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 138));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-        card.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        card.Controls.Add(UiTheme.Label("Votre zone de jeu", 14, true));
-        card.Controls.Add(displays);
-        card.Controls.Add(displayInfo);
-        card.Controls.Add(new DisplayPreview());
-        card.Controls.Add(UiTheme.Label("Centré, sans agrandissement.\nSur un écran 27″ : environ 24,5″.", 9));
-        card.Controls.Add(UiTheme.Label("Activé avec vos jeux cochés.\nBureau restauré à leur fermeture.", 10));
-        var options = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = Padding.Empty };
-        options.Controls.Add(startup); options.Controls.Add(automaticUpdates);
-        card.Controls.Add(options);
-        card.Controls.Add(UiTheme.Label("Vert : en jeu · Gris : attente ou arrêt", 9));
         return card;
     }
 
@@ -223,13 +197,11 @@ internal sealed class SettingsForm : Form
         var selected = games.Count(g => g.Enabled);
         var pending = games.Any(g => g.Enabled && !g.Ready);
         var scanning = scanCancellation is not null;
-        save.Enabled = !scanning && !pending && displays.SelectedIndex >= 0;
+        save.Enabled = !scanning && !pending && !testingDisplay && CanSaveDisplay();
         activate.Enabled = save.Enabled && selected > 0;
         manual.Enabled = !scanning;
         if (!scanning) summary.Text = $"{selected} sélectionné(s) · {games.Count} jeux · {scanNote}";
-        displayInfo.Text = displays.SelectedIndex >= 0
-            ? $"2324 × 1306 · {targets[displays.SelectedIndex].CurrentMode.RefreshRate} Hz\nÉcran natif 2560 × 1440"
-            : "Sélectionnez un écran AMD 2560 × 1440.\nUtilisez le mode Étendre de Windows.";
+        UpdateDisplayInfo();
         footerInfo.Text = pending ? "Choisissez l’exécutable des jeux cochés à configurer."
             : selected == 0 ? "Cochez au moins un jeu pour lancer la surveillance." : "Vos choix sont enregistrés sur ce PC.";
     }
@@ -285,10 +257,14 @@ internal sealed class SettingsForm : Form
     }
     private void Save(bool shouldActivate)
     {
+        if (!CanSaveDisplay()) return;
         try
         {
-            var result = Result with { DisplayIdentity = targets[displays.SelectedIndex].Identity,
-                StartWithWindows = startup.Checked, Games = games.ToArray(), AutoUpdate = automaticUpdates.Checked };
+            var profile = SelectedProfile()!;
+            var result = Result with { DisplayIdentity = profile.DisplayIdentity,
+                StartWithWindows = startup.Checked, Games = games.ToArray(), AutoUpdate = automaticUpdates.Checked,
+                Width = profile.Width, Height = profile.Height, RefreshRate = profile.RefreshRate,
+                CustomResolutions = customResolutions.ToArray(), CompatibilityKey = compatibilityKey };
             if (saveChanges)
             {
                 StartupRegistration.Set(startup.Checked);

@@ -20,8 +20,9 @@ internal sealed class WindowsDisplayBackend : IDisplayBackend
             {
                 var matches = amdDisplays.Where(a => AdlxClient.NormalizeEdid(a.Edid) == m.Edid).ToArray();
                 var match = matches.Length == 1 ? matches[0] : default;
-                return new DisplayTarget(m.Identity, m.DeviceName,
+                var target = new DisplayTarget(m.Identity, m.DeviceName,
                     match.Name ?? "Écran non identifié", match.Width, match.Height, ReadMode(m.DeviceName), m.DriverVersion);
+                return target with { RefreshRates = DisplayProfiles.NativeRefreshRates(ReadModes(m.DeviceName), target) };
             }).ToArray();
         }
     }
@@ -45,6 +46,19 @@ internal sealed class WindowsDisplayBackend : IDisplayBackend
         {
             var monitor = FindMonitor(identity);
             if (FindMode(monitor.DeviceName, mode) is not null) return;
+            // Seed AMD timings from a real native mode at the requested frequency.
+            // The controller has already journaled the original desktop and armed its watchdog.
+            var target = GetDisplays().Single(d => d.Identity == identity);
+            var reference = mode with { Width = target.NativeWidth, Height = target.NativeHeight };
+            if (FindMode(monitor.DeviceName, reference) is null)
+                throw new InvalidOperationException("Aucun mode natif compatible à cette fréquence. Aucun timing ne sera inventé.");
+            if (!SameMode(ReadMode(monitor.DeviceName), reference))
+            {
+                TestMode(identity, reference);
+                ApplyMode(identity, reference);
+                if (!SameMode(ReadMode(monitor.DeviceName), reference))
+                    throw new InvalidOperationException("La fréquence de référence n’a pas été appliquée.");
+            }
             WithDisplay(identity, (amd, display) => { amd.CreateMode(display, mode); return true; });
             // Driver mode enumeration can lag behind ADLX's successful creation result.
             for (var i = 0; i < 30; i++)
@@ -52,7 +66,7 @@ internal sealed class WindowsDisplayBackend : IDisplayBackend
                 if (FindMode(monitor.DeviceName, mode) is not null) return;
                 Thread.Sleep(100);
             }
-            throw new InvalidOperationException("Le mode exact 2324 × 1306 à cette fréquence n'est pas exposé par Windows. Aucun mode approchant ne sera appliqué.");
+            throw new InvalidOperationException($"Le mode exact {mode.Width} × {mode.Height} à {mode.RefreshRate} Hz n’est pas exposé par Windows. Aucun mode approchant ne sera appliqué.");
         }
     }
 
@@ -149,6 +163,15 @@ internal sealed class WindowsDisplayBackend : IDisplayBackend
         var native = Win32.DevMode.Create();
         if (!Win32.EnumDisplaySettingsEx(device, -1, ref native, 0)) throw new InvalidOperationException("Impossible de lire le mode actuel de l'écran.");
         return FromNative(native);
+    }
+    private static IEnumerable<DisplayMode> ReadModes(string device)
+    {
+        for (var i = 0; ; i++)
+        {
+            var native = Win32.DevMode.Create();
+            if (!Win32.EnumDisplaySettingsEx(device, i, ref native, 0)) yield break;
+            yield return FromNative(native);
+        }
     }
     private static Win32.DevMode? FindMode(string device, DisplayMode requested)
     {

@@ -29,6 +29,14 @@ internal sealed class GameListView : ListView
 
 internal sealed class DisplayPreview : Control
 {
+    private int resolutionWidth = 2324;
+    private int resolutionHeight = 1306;
+    internal void SetResolution(int width, int height)
+    {
+        resolutionWidth = width; resolutionHeight = height;
+        AccessibleName = $"Zone {width} × {height} centrée sur une dalle 2560 × 1440";
+        Invalidate();
+    }
     internal DisplayPreview()
     {
         DoubleBuffered = true;
@@ -50,14 +58,16 @@ internal sealed class DisplayPreview : Control
         using var ink = new SolidBrush(UiTheme.Green);
         using var pen = new Pen(UiTheme.Line, 2);
         g.FillRectangle(dark, screen);
-        var active = new Rectangle(screen.Left + screen.Width * 118 / 2560, screen.Top + screen.Height * 67 / 1440,
-            screen.Width * 2324 / 2560, screen.Height * 1306 / 1440);
+        var activeWidth = screen.Width * resolutionWidth / 2560;
+        var activeHeight = screen.Height * resolutionHeight / 1440;
+        var active = new Rectangle(screen.Left + (screen.Width - activeWidth) / 2, screen.Top + (screen.Height - activeHeight) / 2,
+            activeWidth, activeHeight);
         g.FillRectangle(fill, active);
         g.DrawRectangle(pen, screen);
         g.DrawLine(pen, screen.Left + screen.Width / 2, screen.Bottom + 2, screen.Left + screen.Width / 2, screen.Bottom + 10);
         g.DrawLine(pen, screen.Left + screen.Width / 2 - 25, screen.Bottom + 11, screen.Left + screen.Width / 2 + 25, screen.Bottom + 11);
-        using var font = new Font("Segoe UI", 12, FontStyle.Bold);
+        using var font = new Font("Segoe UI", 10, FontStyle.Bold);
         using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString("2324 × 1306", font, ink, active, format);
+        g.DrawString($"{resolutionWidth} × {resolutionHeight}", font, ink, active, format);
     }
 }

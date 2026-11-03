@@ -2,26 +2,36 @@
 
 [Documentation française](../README.md)
 
-A portable Windows tray utility for an exact **2324 × 1306 centered desktop** on a native **2560 × 1440** AMD-connected display, applied **only while at least one selected game is running** and monitoring is enabled.
+A portable Windows tray utility for a **centered preset or custom desktop resolution** (default **2324 × 1306**) on a native **2560 × 1440** AMD-connected display, applied **only while at least one selected game is running** and monitoring is enabled.
 
 **Green = resolution applied in game. Gray = monitoring disabled or waiting for the game. Left double-click toggles monitoring; right-click opens the menu.** On a 27-inch panel this produces an approximately **24.5-inch** image with 118-pixel left/right and 67-pixel top/bottom margins when displayed pixel for pixel. This is not exactly 24 inches or exactly 16:9.
 
 ## Get started
 
 1. Download the Windows x64 ZIP from [Releases](https://github.com/4MZ31/amd-resolution-tray/releases), extract it to a permanent folder and run ResolutionTray.exe. The portable release includes the .NET runtime.
-2. Select your native 1440p display. Its current refresh rate is preserved.
+2. Select your native 1440p display, resolution and refresh rate. The default remains 2324 × 1306 with the desktop refresh rate. Detected rates come from the display’s progressive native modes.
 3. Click **Scanner mes jeux** to scan Steam and Epic Games installations, then check the games to monitor. **Ajouter un jeu…** adds other accessible Windows executables. Existing CS2 / CS:GO users keep their default selection.
 4. Choose **Enregistrer et surveiller**. Without a selected game running, the desktop stays unchanged and the tray reads **En attente d’un jeu sélectionné**.
 5. Launch a selected game. Confirm the first activation within 15 seconds; otherwise the previous display settings are restored automatically.
 6. Closing the last selected game restores the previous desktop and keeps monitoring armed for the next launch. **Désactiver la surveillance** or a tray double-click disables monitoring and restores immediately. **Quitter** restores and exits. The tray icon may be hidden under Windows’ **^** menu.
 
-The initial confirmation is remembered for that display, refresh rate and driver version. Startup with Windows is optional and starts inactive. The interface is currently French and the executable is unsigned.
+The initial confirmation is remembered for that display, dimensions, refresh rate and driver version. Startup with Windows is optional and starts inactive. The interface is currently French and the executable is unsigned.
+
+## Resolution, refresh rate and custom modes
+
+Nine centered presets are available: 2324 × 1306, 2304 × 1296, 2272 × 1278, 2240 × 1260, 1920 × 1080, 1920 × 1440, 1600 × 1200, 1280 × 960 and native 2560 × 1440. The preview and estimated diagonal on a 27-inch panel follow your selection. No stretching is applied, including for 4:3 modes. 2272 × 1278 is approximately 24 inches on a 27-inch native panel.
+
+Choose the current desktop rate or a detected native refresh rate. A previously saved rate that is no longer available blocks saving instead of silently falling back. All checked games share this resolution/rate. The original desktop resolution, refresh rate and scaling are restored after the last game exits.
+
+Choose **Personnalisée…** to enter custom dimensions, between 640 × 480 and 2560 × 1440 without exceeding the panel. Close selected games, then click **Vérifier la compatibilité**. This explicitly starts a temporary display test: save the desktop, arm recovery, create the AMD mode if needed, test and apply the exact Windows mode, and request visual confirmation within 15 seconds. The desktop is restored even after accepting the test. A failed, cancelled or timed-out test does not validate the profile. Recovery data remains if restoration fails.
+
+Successful custom dimensions join your personal choices; click Save to persist them. A custom combination of resolution, rate, display and driver must have passed the test before saving. The test also works for presets. It checks driver/Windows acceptance and visual usability, not every game, HDR or FreeSync behavior. Created AMD modes remain in the driver even after a cancelled test or cancelling settings; cancelling settings preserves application preferences.
 
 ## Game library
 
 The first visit after upgrading scans automatically. The **Scanner mes jeux** button scans Steam libraries across registered drives and Epic manifests, then looks for executables only within the identified game folders. Scans are cancellable and never launch game files. Search/source filters and rescans retain checked games and manual executable choices.
 
-**Prêt** means the game has a recognized/chosen executable. For **Exécutable à choisir**, select the row and use **Exécutables…** to choose the executable used during gameplay. Ambiguous games require a manual choice. All checked games share the same 2324 × 1306 profile. Save is blocked while a checked game lacks an executable.
+**Prêt** means the game has a recognized/chosen executable. For **Exécutable à choisir**, select the row and use **Exécutables…** to choose the executable used during gameplay. Ambiguous games require a manual choice. All checked games share the selected resolution and refresh rate. Save is blocked while a checked game lacks an executable.
 
 Other launchers (GOG, EA, Ubisoft, Xbox…) are not scanned automatically yet; accessible Windows executables can be added manually. Retained entries may belong to a temporarily disconnected drive. Scanned/manual games are matched by executable path; the legacy CS2 / CS:GO fallback matches process names until replaced by a scan.
 
@@ -31,7 +41,7 @@ Other launchers (GOG, EA, Ubisoft, Xbox…) are not scanned automatically yet; a
 
 Windows 11 x64, AMD Radeon with an Adrenalin driver providing ADLX, and a landscape native 2560 × 1440 monitor directly connected to that GPU. The exact mode must be accepted by the driver and monitor. Extended desktop is supported; cloned displays and Eyefinity are excluded. Identical EDIDs are rejected when display identity would be ambiguous. Other connected displays may have different native resolutions.
 
-The application reuses an existing exact mode or creates one through AMD ADLX using the current signal timings. It enables GPU scaling in Centered mode and disables integer scaling if available. Creating a custom mode is separate from applying it; the custom mode remains available after exit. If automatic creation fails, create an accepted mode manually in Adrenalin and retry. No approximate resolution or silent refresh-rate fallback is applied.
+The application reuses an existing exact mode. To create a missing mode, it first prepares an enumerated native 2560 × 1440 mode at the chosen rate when necessary, then uses its timings through AMD ADLX. This preparation occurs after recovery is armed and the original desktop is saved; failures restore the original mode and rate. It enables GPU scaling in Centered mode and disables integer scaling if available. Creating a custom mode is separate from applying it; the custom mode remains available after exit. If automatic creation fails, create an accepted mode manually in Adrenalin and retry. No approximate resolution or silent refresh-rate fallback is applied.
 
 Enable monitoring before or after launching the game. The app checks the selected game executables in the current Windows session about once per second. A minimized/background game still counts as running; restoration happens only after all selected games exit. Rejected confirmation is not retried during the same run; restart the game or toggle monitoring to try again. Closing the game during activation/confirmation cancels the profile and restores the desktop. Verify in-game video settings: a game can select its own display mode. External resolution/scaling changes turn the tray icon gray while keeping restoration available. Physical image size, game behavior, HDR and FreeSync require testing on your setup.
 
@@ -65,8 +75,8 @@ dotnet run --project tests/ResolutionTray.Tests -c Release
 .\build.ps1
 ~~~
 
-Close the app before rebuilding into the same output folder. build.ps1 runs 92 deterministic tests (including manifests, executable matching, multiple simultaneous games and cancellation scenarios), publishes a self-contained executable and creates a ZIP plus SHA-256 checksum under artifacts/. GitHub Actions performs the same checks on Windows, plus native updater restart and rollback tests on isolated executable copies.
+Close the app before rebuilding into the same output folder. build.ps1 runs 127 deterministic tests (including manifests, executable matching, multiple simultaneous games and cancellation scenarios), publishes a self-contained executable and creates a ZIP plus SHA-256 checksum under artifacts/. GitHub Actions performs the same checks on Windows, plus native updater restart and rollback tests on isolated executable copies.
 
-Experimental first version: mode creation/application and automatic restoration were verified on a Radeon RX 7800 XT with a MSI MAG272CQR at 144 Hz. Two other connected displays retained their original settings after restoration. This does not establish compatibility with every monitor or validate CS2 rendering. Multi-game selection is covered by automated tests. Real Steam/Epic scanning, search, checkbox selection and rescan retention were verified. Newly selected games still need validation on each installation.
+Experimental first version: mode creation/application and automatic restoration were verified on a Radeon RX 7800 XT with a MSI MAG272CQR at 144 Hz. Two other connected displays retained their original settings after restoration. This does not establish compatibility with every monitor or validate CS2 rendering. Multi-game selection is covered by automated tests. Real Steam/Epic scanning, search, checkbox selection and rescan retention were verified. Newly selected games still need validation on each installation. The v0.5.0 profile/rate validation and temporary test restoration are covered by automated tests; input validation, the preview and real refresh-rate detection were checked without changing the display. New hardware combinations still require the compatibility test on each installation.
 
 [MIT license](../LICENSE). Independent project, not affiliated with AMD or Valve. See the [French documentation](../README.md) for implementation details and troubleshooting.

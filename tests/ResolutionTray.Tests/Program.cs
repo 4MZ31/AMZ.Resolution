@@ -128,6 +128,7 @@ var cases = new List<(string, Func<Task>)>
 cases.AddRange(GameModeTests.Cases());
 cases.AddRange(GameCatalogTests.Cases());
 cases.AddRange(UpdateTests.Cases());
+cases.AddRange(DisplayProfileTests.Cases());
 foreach (var stage in new[] { "create", "center", "test", "apply" })
 {
     var failedStage = stage;
@@ -193,10 +194,11 @@ sealed class FakeBackend(List<string> events) : IDisplayBackend
     public ScalingState Scaling = Fixture.Scaling;
     public bool Connected = true, IgnoreCentering, IgnoreApply, FailRestore, IgnoreRestore;
     public int NativeWidth = 2560;
+    public int[]? RefreshRates;
     public string? FailStage;
     public Action? BeforeCreate, BeforeTest, BeforeApply;
     public IReadOnlyList<DisplayTarget> GetDisplays() => Connected
-        ? [new("monitor", "DISPLAY2", "Generic 1440p", NativeWidth, 1440, Current)] : [];
+        ? [new("monitor", "DISPLAY2", "Generic 1440p", NativeWidth, 1440, Current, RefreshRates: RefreshRates)] : [];
     public ScalingState GetScaling(string identity) => Scaling;
     public void EnsureCustomMode(string identity, DisplayMode mode) { BeforeCreate?.Invoke(); Stage("create"); }
     public void SetCentered(string identity) { Stage("center"); if (!IgnoreCentering) Scaling = new(true, 2, false); }

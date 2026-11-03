@@ -1,3 +1,5 @@
+using ResolutionTray.Core;
+
 namespace ResolutionTray.UI;
 
 internal sealed class ConfirmationForm : Form
@@ -5,12 +7,12 @@ internal sealed class ConfirmationForm : Form
     private readonly System.Windows.Forms.Timer timer = new() { Interval = 1000 };
     private readonly Label countdown = new() { AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(0, 16, 0, 16) };
     private int seconds = 15;
-    internal ConfirmationForm(string? deviceName, Func<bool> isGameRunning)
+    internal ConfirmationForm(string? deviceName, Func<bool> isGameRunning, DisplayMode mode, bool testOnly = false)
     {
-        Text = "Conserver cet affichage ?";
+        Text = testOnly ? "Test de compatibilité — retour automatique" : "Conserver cet affichage ?";
         Font = new Font("Segoe UI", 10);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(500, 205);
+        ClientSize = new Size(560, 235);
         Padding = new Padding(24);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -19,8 +21,9 @@ internal sealed class ConfirmationForm : Form
         StartPosition = FormStartPosition.Manual;
         var area = Screen.AllScreens.FirstOrDefault(s => s.DeviceName == deviceName)?.WorkingArea ?? Screen.PrimaryScreen!.WorkingArea;
         Location = new Point(area.Left + (area.Width - Width) / 2, area.Top + (area.Height - Height) / 2);
-        var text = new Label { Text = "L'image doit être centrée avec des bandes noires autour.\nVérifiez sa netteté et la taille de la zone affichée.", AutoSize = true, Dock = DockStyle.Top };
-        var keep = new Button { Text = "Conserver", AutoSize = true, DialogResult = DialogResult.OK };
+        var text = new Label { Text = $"{mode.Width} × {mode.Height} · {mode.RefreshRate} Hz\nVérifiez la netteté, le centrage et la taille de l’image.\n" +
+            (testOnly ? "Le bureau sera restauré même si vous validez ce test." : "Les marges dépendent de la résolution choisie."), AutoSize = true, Dock = DockStyle.Top };
+        var keep = new Button { Text = testOnly ? "L’image est correcte" : "Conserver", AutoSize = true, DialogResult = DialogResult.OK };
         var revert = new Button { Text = "Restaurer", AutoSize = true, DialogResult = DialogResult.Cancel };
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 38, FlowDirection = FlowDirection.RightToLeft };
         buttons.Controls.Add(keep); buttons.Controls.Add(revert);

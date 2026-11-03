@@ -96,7 +96,7 @@ internal sealed partial class TrayContext : ApplicationContext
             active = active && game.IsRunning();
             var session = controller.Session;
             tray.Icon = active ? green : gray;
-            status.Text = active ? $"Actif — 2324 × 1306 · {session!.RequestedMode.RefreshRate} Hz"
+            status.Text = active ? $"Actif — {session!.RequestedMode.Width} × {session.RequestedMode.Height} · {session.RequestedMode.RefreshRate} Hz"
                 : session is not null ? "Profil interrompu — restauration disponible"
                 : !gameMode.Enabled ? "Désactivé"
                 : game.IsRunning() ? "Profil non appliqué — réactivez la surveillance"
@@ -127,14 +127,14 @@ internal sealed partial class TrayContext : ApplicationContext
         try
         {
             string? verified = null;
-            await gameMode.SynchronizeAsync(new Profile(settings.DisplayIdentity), async session =>
+            await gameMode.SynchronizeAsync(new Profile(settings.DisplayIdentity, settings.RefreshRate, settings.Width, settings.Height), async session =>
             {
                 if (!game.IsRunning()) return false;
                 var display = (await Task.Run(backend.GetDisplays)).SingleOrDefault(d => d.Identity == session.DisplayIdentity)
                     ?? throw new InvalidOperationException("L'écran sélectionné est déconnecté.");
-                var fingerprint = $"{display.Identity}|{session.RequestedMode.RefreshRate}|{display.DriverVersion}";
+                var fingerprint = DisplayProfiles.Fingerprint(display, session.RequestedMode);
                 if (settings.VerifiedProfile == fingerprint) return true;
-                using var confirmation = new ConfirmationForm(display.DeviceName, game.IsRunning);
+                using var confirmation = new ConfirmationForm(display.DeviceName, game.IsRunning, session.RequestedMode);
                 if (confirmation.ShowDialog() != DialogResult.OK || !game.IsRunning()) return false;
                 verified = fingerprint;
                 return true;
@@ -173,7 +173,17 @@ internal sealed partial class TrayContext : ApplicationContext
         try
         {
             var displays = await Task.Run(backend.GetDisplays);
-            using var dialog = new SettingsForm(settings, displays);
+            using var dialog = new SettingsForm(settings, displays, testProfile: async (profile, isSelectedGameRunning) =>
+            {
+                bool CanTest() => !game.IsRunning() && !isSelectedGameRunning();
+                if (!CanTest()) throw new InvalidOperationException("Fermez les jeux sélectionnés avant ce test temporaire.");
+                return await controller.TestAsync(profile, session =>
+                {
+                    var display = displays.Single(d => d.Identity == session.DisplayIdentity);
+                    using var confirmation = new ConfirmationForm(display.DeviceName, CanTest, session.RequestedMode, testOnly: true);
+                    return Task.FromResult(confirmation.ShowDialog() == DialogResult.OK);
+                }, CanTest);
+            });
             if (dialog.ShowDialog() == DialogResult.OK)
             {
                 settings = dialog.Result;
