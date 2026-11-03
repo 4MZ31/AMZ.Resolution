@@ -31,11 +31,17 @@ internal sealed partial class TrayContext : ApplicationContext
     internal TrayContext(bool showSettings, Guid? updated = null, bool resumeMonitoring = false)
     {
         settings = SettingsStore.Load();
+        UiTheme.SetDarkMode(settings.DarkMode);
         game.Update(settings.GameList);
         openSettings = showSettings || settings.DisplayIdentity is null;
         controller = new ProfileController(backend, new RecoveryStore(), new SafetyMonitor());
         gameMode = new GameModeController(controller, game);
+        menu.Renderer = new TrayMenuRenderer(); menu.Font = UiTheme.Font();
+        menu.BackColor = UiTheme.Surface; menu.ForeColor = UiTheme.Ink; menu.ShowImageMargin = false;
+        menu.Padding = new Padding(4);
+        UiTheme.ThemeChanged += RefreshMenuTheme;
         menu.Items.AddRange([status, new ToolStripSeparator(), toggle, restore, settingsItem, updateItem, new ToolStripSeparator(), quit]);
+        foreach (ToolStripItem item in menu.Items) if (item is not ToolStripSeparator) item.Padding = new Padding(12, 8, 12, 8);
         tray = new NotifyIcon { Icon = gray, Text = "AMD Resolution Tray — Désactivé", ContextMenuStrip = menu, Visible = true };
         tray.MouseDoubleClick += async (_, e) => { if (e.Button == MouseButtons.Left) await ToggleAsync(); };
         toggle.Click += async (_, _) => await ToggleAsync();
@@ -108,6 +114,7 @@ internal sealed partial class TrayContext : ApplicationContext
         }
         finally { SetWorking(false); settingsItem.Enabled = controller.Session is null; }
     }
+    private void RefreshMenuTheme() { menu.BackColor = UiTheme.Surface; menu.ForeColor = UiTheme.Ink; menu.Invalidate(); }
     private void SetInactive(string text) { tray.Icon = gray; status.Text = text; tray.Text = "AMD Resolution Tray — Désactivé"; }
 
     private async Task ToggleAsync()
@@ -183,7 +190,7 @@ internal sealed partial class TrayContext : ApplicationContext
                     using var confirmation = new ConfirmationForm(display.DeviceName, CanTest, session.RequestedMode, testOnly: true);
                     return Task.FromResult(confirmation.ShowDialog() == DialogResult.OK);
                 }, CanTest);
-            });
+            }, monitoringEnabled: wasEnabled);
             if (dialog.ShowDialog() == DialogResult.OK)
             {
                 settings = dialog.Result;
@@ -236,6 +243,7 @@ internal sealed partial class TrayContext : ApplicationContext
     {
         if (disposing)
         {
+            UiTheme.ThemeChanged -= RefreshMenuTheme;
             DisposeUpdates();
             poll.Dispose(); tray.Dispose(); menu.Dispose(); gray.Dispose(); green.Dispose();
             settingsSignal.Dispose(); quitSignal.Dispose();

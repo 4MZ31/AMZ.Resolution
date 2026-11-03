@@ -10,12 +10,22 @@ A portable Windows tray utility for a **centered preset or custom desktop resolu
 
 1. Download the Windows x64 ZIP from [Releases](https://github.com/4MZ31/amd-resolution-tray/releases), extract it to a permanent folder and run ResolutionTray.exe. The portable release includes the .NET runtime.
 2. Select your native 1440p display, resolution and refresh rate. The default remains 2324 × 1306 with the desktop refresh rate. Detected rates come from the display’s progressive native modes.
-3. Click **Scanner mes jeux** to scan Steam and Epic Games installations, then check the games to monitor. **Ajouter un jeu…** adds other accessible Windows executables. Existing CS2 / CS:GO users keep their default selection.
-4. Choose **Enregistrer et surveiller**. Without a selected game running, the desktop stays unchanged and the tray reads **En attente d’un jeu sélectionné**.
+3. Click **Scanner les jeux** to scan Steam and Epic Games installations, then check the games to monitor. **Ajouter un jeu…** adds other accessible Windows executables. Existing CS2 / CS:GO users keep their default selection.
+4. Choose **Enregistrer et activer**. Without a selected game running, the desktop stays unchanged and the tray reads **En attente d’un jeu sélectionné**.
 5. Launch a selected game. Confirm the first activation within 15 seconds; otherwise the previous display settings are restored automatically.
 6. Closing the last selected game restores the previous desktop and keeps monitoring armed for the next launch. **Désactiver la surveillance** or a tray double-click disables monitoring and restores immediately. **Quitter** restores and exits. The tray icon may be hidden under Windows’ **^** menu.
 
 The initial confirmation is remembered for that display, dimensions, refresh rate and driver version. Startup with Windows is optional and starts inactive. The interface is currently French and the executable is unsigned.
+
+## Interface and appearance
+
+Version 0.6.0 separates settings into **Jeux** (games), **Affichage** (display) and **Application**. Games retain Steam/Epic scanning, manual additions, search, source filtering and executable configuration; **Sélectionnés** filters checked games without discarding the catalog. Display settings retain every preset, custom dimensions, native refresh rates and the protected compatibility test, with a proportional panel preview and pixel margins.
+
+**Dark mode is the default**, including upgrades from older settings. Under Application, turn **Mode sombre** off for the light theme. Changes preview immediately across the window. Save persists the choice; Cancel restores the saved theme. Windows high-contrast colors take priority. The footer keeps the profile and save actions visible and explains incomplete configuration.
+
+Ctrl+1/2/3 navigates between pages, Ctrl+F focuses game search, Ctrl+S saves valid settings, Space checks a game and F2 opens executable configuration. The scan and display confirmation retain their functional progress/countdown; there is no decorative looping motion.
+
+The interface follows the nine-pass [Unslop](https://github.com/heydamir/unslop) method by **Damir Sokolovsky (@heydamir)**, adapted to native WinForms: spacing, color, glyphs, copy, type, task layout, interaction details, a code-drawn panel preview and purposeful motion. Adaptation credits and icon licenses are in [third-party notices](THIRD-PARTY-NOTICES.txt).
 
 ## Resolution, refresh rate and custom modes
 
@@ -29,13 +39,13 @@ Successful custom dimensions join your personal choices; click Save to persist t
 
 ## Game library
 
-The first visit after upgrading scans automatically. The **Scanner mes jeux** button scans Steam libraries across registered drives and Epic manifests, then looks for executables only within the identified game folders. Scans are cancellable and never launch game files. Search/source filters and rescans retain checked games and manual executable choices.
+The first visit after upgrading scans automatically. The **Scanner les jeux** button scans Steam libraries across registered drives and Epic manifests, then looks for executables only within the identified game folders. Scans are cancellable and never launch game files. Search/source filters and rescans retain checked games and manual executable choices.
 
-**Prêt** means the game has a recognized/chosen executable. For **Exécutable à choisir**, select the row and use **Exécutables…** to choose the executable used during gameplay. Ambiguous games require a manual choice. All checked games share the selected resolution and refresh rate. Save is blocked while a checked game lacks an executable.
+**Prêt** means the game has a recognized/chosen executable. For **À configurer**, select the row and use **Choisir le fichier…** or **Configurer…** to choose the executable used during gameplay. Ambiguous games require a manual choice. All checked games share the selected resolution and refresh rate. Save is blocked while a checked game lacks an executable.
 
 Other launchers (GOG, EA, Ubisoft, Xbox…) are not scanned automatically yet; accessible Windows executables can be added manually. Retained entries may belong to a temporarily disconnected drive. Scanned/manual games are matched by executable path; the legacy CS2 / CS:GO fallback matches process names until replaced by a scan.
 
-**Enregistrer** saves choices. **Enregistrer et surveiller** saves and arms monitoring. Saving with all games unchecked stops monitoring. Cancel closes without saving.
+**Enregistrer** saves choices. **Enregistrer et activer** saves and arms monitoring. Saving with all games unchecked stops monitoring. Cancel closes without saving.
 
 ## Requirements and scope
 
@@ -59,7 +69,7 @@ Diagnostics include monitor identifiers; remove them before posting a public iss
 
 ## Automatic updates
 
-The portable app checks this GitHub repository at startup and every six hours, including numbered experimental releases. Older versions and drafts are ignored. Network errors leave the app running and are retried later. **Mettre à jour automatiquement** in settings enables/disables this behavior; **Mettre à jour maintenant…** in the tray menu checks and installs on demand.
+The portable app checks this GitHub repository at startup and every six hours, including numbered experimental releases. Older versions and drafts are ignored. Network errors leave the app running and are retried later. **Mises à jour automatiques** in settings enables/disables this behavior; **Mettre à jour maintenant…** in the tray menu checks and installs on demand.
 
 Downloads are checked against the published SHA-256 and GitHub digest when present, then the Windows x64 executable format and file version are verified. Installation waits until selected games and configuration windows are closed. The desktop is restored before exit. A separate process replaces the executable in its current folder, relaunches it and keeps a backup until startup is acknowledged. Failed startup restores and relaunches the previous version. Armed monitoring resumes, and settings are preserved.
 
@@ -72,10 +82,11 @@ The install folder must be writable by the current user; no elevation is request
 ~~~powershell
 dotnet build ResolutionTray.slnx -c Release
 dotnet run --project tests/ResolutionTray.Tests -c Release
+dotnet run --project tests/ResolutionTray.UiTests -c Release
 .\build.ps1
 ~~~
 
-Close the app before rebuilding into the same output folder. build.ps1 runs 127 deterministic tests (including manifests, executable matching, multiple simultaneous games and cancellation scenarios), publishes a self-contained executable and creates a ZIP plus SHA-256 checksum under artifacts/. GitHub Actions performs the same checks on Windows, plus native updater restart and rollback tests on isolated executable copies.
+Close the app before rebuilding into the same output folder. build.ps1 runs 127 deterministic tests (including manifests, executable matching, multiple simultaneous games and cancellation scenarios), runs WinForms interaction checks without AMD/display changes, publishes a self-contained executable and creates a ZIP plus SHA-256 checksum under artifacts/. GitHub Actions performs the same checks on Windows, plus native updater restart and rollback tests on isolated executable copies.
 
 Experimental first version: mode creation/application and automatic restoration were verified on a Radeon RX 7800 XT with a MSI MAG272CQR at 144 Hz. Two other connected displays retained their original settings after restoration. This does not establish compatibility with every monitor or validate CS2 rendering. Multi-game selection is covered by automated tests. Real Steam/Epic scanning, search, checkbox selection and rescan retention were verified. Newly selected games still need validation on each installation. The v0.5.0 profile/rate validation and temporary test restoration are covered by automated tests; input validation, the preview and real refresh-rate detection were checked without changing the display. New hardware combinations still require the compatibility test on each installation.
 

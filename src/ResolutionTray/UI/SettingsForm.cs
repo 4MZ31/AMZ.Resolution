@@ -8,23 +8,23 @@ internal sealed partial class SettingsForm : Form
 {
     private readonly IReadOnlyList<DisplayTarget> targets;
     private readonly List<GameEntry> games;
-    private readonly ComboBox displays = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top };
-    private readonly CheckBox startup = new() { Text = "Lancer avec Windows", AutoSize = true };
-    private readonly CheckBox automaticUpdates = new() { Text = "Mettre à jour automatiquement", AutoSize = true };
+    private readonly ComboBox displays = new ThemedComboBox() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top };
+    private readonly CheckBox startup = new ToggleSwitch { Name = "startup", AccessibleName = "Démarrage avec Windows" };
+    private readonly CheckBox automaticUpdates = new ToggleSwitch { Name = "automaticUpdates", AccessibleName = "Mises à jour automatiques" };
     private readonly GameListView library = new() { Dock = DockStyle.Fill, View = View.Details, CheckBoxes = true,
         FullRowSelect = true, MultiSelect = false, HideSelection = false, BorderStyle = BorderStyle.None, ShowItemToolTips = true };
     private readonly TextBox search = new() { Dock = DockStyle.Fill, PlaceholderText = "Rechercher un jeu…", BorderStyle = BorderStyle.FixedSingle };
-    private readonly ComboBox source = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+    private readonly ComboBox source = new ThemedComboBox() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
     private readonly Label summary = UiTheme.Label("");
     private readonly Label detail = UiTheme.Label("Sélectionnez un jeu pour consulter son exécutable.");
     private readonly Label displayInfo = UiTheme.Label("");
     private readonly Label footerInfo = UiTheme.Label("Vos choix sont enregistrés sur ce PC.", 9);
     private readonly Label empty = UiTheme.Label("Aucun jeu trouvé. Lancez un scan ou ajoutez un jeu.");
-    private readonly Button scan = UiTheme.Button("Scanner mes jeux", 176, true);
+    private readonly Button scan = UiTheme.Button("Scanner les jeux", 164);
     private readonly Button manual = UiTheme.Button("Ajouter un jeu…", 144);
     private readonly Button configure = UiTheme.Button("Exécutables…", 136);
     private readonly Button save = UiTheme.Button("Enregistrer", 116);
-    private readonly Button activate = UiTheme.Button("Enregistrer et surveiller", 212, true);
+    private readonly Button activate = UiTheme.Button("Enregistrer et activer", 204, true);
     private readonly ProgressBar progress = new() { Dock = DockStyle.Bottom, Height = 3, Style = ProgressBarStyle.Marquee, Visible = false };
     private CancellationTokenSource? scanCancellation;
     private bool rendering;
@@ -34,51 +34,23 @@ internal sealed partial class SettingsForm : Form
     public bool ActivateRequested { get; private set; }
 
     internal SettingsForm(AppSettings settings, IReadOnlyList<DisplayTarget> allDisplays, bool saveChanges = true,
-        Func<Profile, Func<bool>, Task<bool>>? testProfile = null)
+        Func<Profile, Func<bool>, Task<bool>>? testProfile = null, bool monitoringEnabled = false)
     {
         Result = settings;
+        UiTheme.SetDarkMode(settings.DarkMode);
         this.saveChanges = saveChanges;
         this.testProfile = testProfile;
         games = settings.GameList.ToList();
         targets = allDisplays.Where(d => d.NativeWidth == 2560 && d.NativeHeight == 1440).ToArray();
-        Text = $"AMD Resolution Tray — Vos jeux · v{GitHubUpdateClient.CurrentVersion.ToString(3)}";
-        Font = new Font("Segoe UI", 10);
-        ForeColor = UiTheme.Ink;
-        BackColor = UiTheme.Background;
-        AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(1140, 820);
-        MinimumSize = new Size(1020, 740);
+        Text = "ResolutionTray — Paramètres";
+        UiTheme.Apply(this);
+        ClientSize = new Size(1200, 800);
+        MinimumSize = new Size(1040, 680);
         StartPosition = FormStartPosition.CenterScreen;
-        var outer = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 1, RowCount = 3 };
-        outer.RowStyles.Add(new RowStyle(SizeType.Absolute, 94));
-        outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        outer.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
-        var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Margin = Padding.Empty };
-        header.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
-        header.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        header.Controls.Add(UiTheme.Label("Vos jeux, votre affichage", 22, true));
-        header.Controls.Add(UiTheme.Label("Cochez les jeux qui utiliseront votre résolution personnalisée."));
-        outer.Controls.Add(header);
-        var body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 66));
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
-        body.Controls.Add(BuildLibrary(), 0, 0);
-        body.Controls.Add(BuildDisplay(), 1, 0);
-        outer.Controls.Add(body);
-        var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Padding = new Padding(0, 18, 0, 0), Margin = Padding.Empty };
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        footer.Controls.Add(footerInfo);
-        var actions = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
-        var cancel = UiTheme.Button("Annuler", 104);
-        cancel.DialogResult = DialogResult.Cancel;
-        actions.Controls.Add(activate); actions.Controls.Add(save); actions.Controls.Add(cancel);
-        footer.Controls.Add(actions);
-        outer.Controls.Add(footer);
-        Controls.Add(outer);
-        CancelButton = cancel;
+        BuildShell(monitoringEnabled);
         startup.Checked = StartupRegistration.IsEnabled;
         automaticUpdates.Checked = settings.AutoUpdate;
+        darkMode.Checked = settings.DarkMode;
         InitializeDisplay(settings);
         search.TextChanged += (_, _) => RenderLibrary();
         source.SelectedIndexChanged += (_, _) => RenderLibrary();
@@ -92,53 +64,16 @@ internal sealed partial class SettingsForm : Form
         save.Click += (_, _) => Save(false);
         activate.Click += (_, _) => Save(true);
         FormClosing += (_, e) => { if (testingDisplay) e.Cancel = true; else scanCancellation?.Cancel(); };
+        UiTheme.Recolor(this);
         RenderLibrary();
+        baselineDraft = DraftSignature();
+        startup.CheckedChanged += (_, _) => UpdateButtons();
+        automaticUpdates.CheckedChanged += (_, _) => UpdateButtons();
+        darkMode.CheckedChanged += (_, _) => { UiTheme.SetDarkMode(darkMode.Checked); UpdateButtons(); };
+        UiTheme.ThemeChanged += RefreshTheme;
+        FormClosed += (_, _) => { UiTheme.ThemeChanged -= RefreshTheme; if (DialogResult != DialogResult.OK || !saveChanges) UiTheme.SetDarkMode(settings.DarkMode); };
         UpdateButtons();
         if (settings.Games is null) Shown += async (_, _) => await ScanAsync();
-    }
-
-    private Control BuildLibrary()
-    {
-        var card = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(20),
-            ColumnCount = 1, RowCount = 6, Margin = new Padding(0, 0, 16, 0) };
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-        card.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        card.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
-        card.Controls.Add(UiTheme.Label("Bibliothèque de jeux", 14, true));
-        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
-        toolbar.Controls.Add(scan); toolbar.Controls.Add(manual);
-        card.Controls.Add(toolbar);
-        var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
-        filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        filters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 148));
-        search.Margin = new Padding(0, 0, 12, 0);
-        filters.Controls.Add(search);
-        source.Items.AddRange(["Toutes les sources", "Steam", "Epic Games", "Manuel"]);
-        source.SelectedIndex = 0;
-        filters.Controls.Add(source);
-        card.Controls.Add(filters);
-        var scanStatus = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
-        scanStatus.Controls.Add(summary); scanStatus.Controls.Add(progress);
-        card.Controls.Add(scanStatus);
-        library.Columns.Add("Jeu", 290);
-        library.Columns.Add("Source", 94);
-        library.Columns.Add("État", 162);
-        library.AccessibleName = "Jeux installés à surveiller";
-        var listArea = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty, BackColor = Color.White };
-        empty.TextAlign = ContentAlignment.MiddleCenter;
-        listArea.Controls.Add(library); listArea.Controls.Add(empty);
-        card.Controls.Add(listArea);
-        var info = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty, Padding = new Padding(0, 12, 0, 0) };
-        info.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        info.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 144));
-        detail.Font = new Font("Segoe UI", 9);
-        info.Controls.Add(detail);
-        info.Controls.Add(configure);
-        card.Controls.Add(info);
-        return card;
     }
 
     private void RenderLibrary()
@@ -152,17 +87,18 @@ internal sealed partial class SettingsForm : Form
             var query = search.Text.Trim();
             foreach (var game in games.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase))
             {
-                if (!game.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase)) continue;
+                if (!game.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) || selectedOnly && !game.Enabled) continue;
                 if (source.SelectedIndex > 0 && game.Source != source.SelectedItem?.ToString()) continue;
                 var item = new ListViewItem(game.Name) { Tag = game.Id, Checked = game.Enabled, UseItemStyleForSubItems = false,
                     ToolTipText = game.InstallDirectory };
                 item.SubItems.Add(game.Source);
-                item.SubItems.Add(game.Ready ? "Prêt" : "Exécutable à choisir").ForeColor = game.Ready ? UiTheme.Green : Color.FromArgb(161, 104, 27);
+                item.SubItems.Add(game.Ready ? "Prêt" : "À configurer").ForeColor = game.Ready ? UiTheme.Secondary : UiTheme.Warning;
                 library.Items.Add(item);
                 if (game.Id == selectedId) item.Selected = true;
             }
             empty.Visible = library.Items.Count == 0;
-            empty.Text = games.Count == 0 ? "Lancez un scan ou ajoutez votre premier jeu." : "Aucun jeu ne correspond à votre recherche.";
+            empty.Text = games.Count == 0 ? "Votre bibliothèque commence ici\nScannez Steam et Epic Games, ou ajoutez un exécutable"
+                : selectedOnly && games.All(g => !g.Enabled) ? "Aucun jeu sélectionné\nRevenez à Tous les jeux pour faire votre choix" : "Aucun résultat\nModifiez la recherche ou le filtre de source";
             if (empty.Visible) empty.BringToFront();
         }
         finally { library.EndUpdate(); rendering = false; }
@@ -171,9 +107,10 @@ internal sealed partial class SettingsForm : Form
     private void ResizeColumns()
     {
         if (library.Columns.Count < 3) return;
-        library.Columns[0].Width = Math.Max(160, library.ClientSize.Width - 94 - 162 - 24);
-        library.Columns[1].Width = 94;
-        library.Columns[2].Width = 162;
+        var scale = DeviceDpi / 96f;
+        library.Columns[1].Width = (int)(112 * scale);
+        library.Columns[2].Width = (int)(144 * scale);
+        library.Columns[0].Width = Math.Max((int)(180 * scale), library.ClientSize.Width - library.Columns[1].Width - library.Columns[2].Width - (int)(24 * scale));
     }
     private GameEntry? SelectedGame() => library.SelectedItems.Count == 1
         ? games.FirstOrDefault(g => g.Id == library.SelectedItems[0].Tag?.ToString()) : null;
@@ -181,8 +118,9 @@ internal sealed partial class SettingsForm : Form
     {
         var game = SelectedGame();
         configure.Enabled = game is not null && scanCancellation is null;
-        detail.Text = game is null ? "Sélectionnez un jeu pour consulter son exécutable."
-            : game.Ready ? $"{game.Name}\n{game.Executables.Length} fichier(s) surveillé(s)" : $"{game.Name}\nChoisissez son exécutable pour l’activer.";
+        configure.Text = game?.Ready == true ? "Configurer…" : "Choisir le fichier…";
+        detail.Text = game is null ? "Sélectionnez un jeu pour vérifier son exécutable"
+            : game.Ready ? $"{game.Name}\n{game.Executables.Length} {(game.Executables.Length == 1 ? "exécutable surveillé" : "exécutables surveillés")}" : $"{game.Name}\nChoisissez le fichier utilisé pendant une partie";
     }
     private void CheckGame(object? sender, ItemCheckEventArgs e)
     {
@@ -191,19 +129,21 @@ internal sealed partial class SettingsForm : Form
         var index = games.FindIndex(g => g.Id == id);
         if (index >= 0) games[index] = games[index] with { Enabled = e.NewValue == CheckState.Checked };
         UpdateButtons();
+        if (selectedOnly && IsHandleCreated) BeginInvoke((Action)(() => { if (!IsDisposed && !Disposing) RenderLibrary(); }));
     }
     private void UpdateButtons()
     {
+        if (updatingDisplay) return;
         var selected = games.Count(g => g.Enabled);
         var pending = games.Any(g => g.Enabled && !g.Ready);
         var scanning = scanCancellation is not null;
         save.Enabled = !scanning && !pending && !testingDisplay && CanSaveDisplay();
         activate.Enabled = save.Enabled && selected > 0;
         manual.Enabled = !scanning;
-        if (!scanning) summary.Text = $"{selected} sélectionné(s) · {games.Count} jeux · {scanNote}";
+        if (!scanning) summary.Text = $"{selected} {(selected == 1 ? "jeu sélectionné" : "jeux sélectionnés")} sur {games.Count} · {scanNote}";
+        selectionFilter.Text = $"Sélectionnés ({selected})";
         UpdateDisplayInfo();
-        footerInfo.Text = pending ? "Choisissez l’exécutable des jeux cochés à configurer."
-            : selected == 0 ? "Cochez au moins un jeu pour lancer la surveillance." : "Vos choix sont enregistrés sur ce PC.";
+        UpdateFooter(pending, selected);
     }
     private async Task ScanAsync()
     {
@@ -231,7 +171,7 @@ internal sealed partial class SettingsForm : Form
             scanCancellation = null;
             if (!IsDisposed && !Disposing)
             {
-                scan.Text = "Scanner mes jeux"; progress.Visible = false; RenderLibrary();
+                scan.Text = "Scanner les jeux"; progress.Visible = false; RenderLibrary();
             }
         }
     }
@@ -255,16 +195,17 @@ internal sealed partial class SettingsForm : Form
         games[index] = game with { Executables = dialog.Executables, Candidates = dialog.Candidates };
         RenderLibrary();
     }
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) UiTheme.ThemeChanged -= RefreshTheme;
+        base.Dispose(disposing);
+    }
     private void Save(bool shouldActivate)
     {
         if (!CanSaveDisplay()) return;
         try
         {
-            var profile = SelectedProfile()!;
-            var result = Result with { DisplayIdentity = profile.DisplayIdentity,
-                StartWithWindows = startup.Checked, Games = games.ToArray(), AutoUpdate = automaticUpdates.Checked,
-                Width = profile.Width, Height = profile.Height, RefreshRate = profile.RefreshRate,
-                CustomResolutions = customResolutions.ToArray(), CompatibilityKey = compatibilityKey };
+            var result = CreateDraft();
             if (saveChanges)
             {
                 StartupRegistration.Set(startup.Checked);

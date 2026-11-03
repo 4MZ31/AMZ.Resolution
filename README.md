@@ -13,8 +13,8 @@ Sur une dalle 27 pouces, le profil correspond à environ **24,5 pouces**, avec 1
 1. Télécharger l'archive Windows x64 depuis les [versions publiées](https://github.com/4MZ31/amd-resolution-tray/releases).
 2. Extraire toute l'archive dans un dossier permanent, puis ouvrir **ResolutionTray.exe**. Le runtime .NET est inclus dans la distribution portable.
 3. Choisir l’écran 2560 × 1440, la résolution et le taux de rafraîchissement. **Fréquence du bureau** conserve la fréquence au moment de l’activation ; les autres choix sont détectés sur l’écran. Le profil initial reste 2324 × 1306 avec la fréquence du bureau.
-4. Cliquer sur **Scanner mes jeux**, puis cocher les jeux souhaités. Le scan détecte les bibliothèques Steam et Epic Games. **Ajouter un jeu…** permet de choisir un exécutable pour les autres installations. CS2 / CS:GO reste présélectionné lors de la mise à jour.
-5. Cliquer sur **Enregistrer et surveiller**. Sans jeu sélectionné ouvert, le bureau reste inchangé et l’icône indique **En attente d’un jeu sélectionné**. À l’ouverture du jeu, le premier essai doit être confirmé dans les 15 secondes ; sinon l’affichage précédent est restauré.
+4. Cliquer sur **Scanner les jeux**, puis cocher les jeux souhaités. Le scan détecte les bibliothèques Steam et Epic Games. **Ajouter un jeu…** permet de choisir un exécutable pour les autres installations. CS2 / CS:GO reste présélectionné lors de la mise à jour.
+5. Cliquer sur **Enregistrer et activer**. Sans jeu sélectionné ouvert, le bureau reste inchangé et l’icône indique **En attente d’un jeu sélectionné**. À l’ouverture du jeu, le premier essai doit être confirmé dans les 15 secondes ; sinon l’affichage précédent est restauré.
 6. La fermeture du dernier jeu sélectionné restaure automatiquement l’affichage précédent. La surveillance reste armée pour le prochain lancement. Un double-clic ou le menu clic droit permet de la désactiver et de restaurer le bureau immédiatement. Si l’icône est masquée, ouvrir le menu **^** de Windows.
 
 La validation en jeu est mémorisée pour cet écran, ces dimensions, cette fréquence et cette version du pilote. Une modification de ces éléments déclenche une nouvelle confirmation. L'option de démarrage avec Windows lance l'utilitaire désactivé. Une fermeture anormale antérieure peut nécessiter une récupération.
@@ -31,6 +31,20 @@ Le menu **Désactiver la surveillance** et la commande **Quitter** restaurent le
 - Deux écrans aux EDID identiques ne peuvent pas être distingués de manière sûre par cette version : leur sélection est refusée.
 
 Aucun compte, accès administrateur, serveur ou service Windows n'est nécessaire. L'interface de cette première version est en français. L'exécutable n'est pas signé numériquement.
+
+## Interface et apparence
+
+La v0.6.0 réorganise les paramètres en trois espaces, accessibles depuis la navigation latérale :
+
+- **Jeux** : scan Steam/Epic, ajout manuel, recherche, source et filtre **Sélectionnés**. Choisir une ligne puis **Choisir le fichier…** ou **Configurer…** pour régler ses exécutables. La touche Espace coche un jeu et F2 ouvre sa configuration.
+- **Affichage** : écran cible, résolution, fréquence et test de compatibilité, avec aperçu de la zone centrée, estimation sur une dalle 27 pouces et marges en pixels. Les dimensions ne sont affichées que pour **Personnalisée…**.
+- **Application** : apparence, démarrage avec Windows et mises à jour automatiques. Le **mode sombre est activé par défaut**, y compris lors d’une mise à jour depuis une ancienne version. Désactiver **Mode sombre** pour passer au mode clair.
+
+Le changement de thème est immédiat dans la fenêtre. **Enregistrer** ou **Enregistrer et activer** mémorise ce choix ; **Annuler** rétablit le thème enregistré. Les couleurs de contraste élevé de Windows ont priorité sur la palette de l’application.
+
+Le pied de fenêtre reste visible dans chaque espace : résolution/fréquence, modifications non enregistrées ou raison bloquant l’enregistrement. **Voir** ramène au réglage à terminer. Les choix de jeux et d’affichage sont conservés quand on change de page ou de filtre. **Ctrl+1/2/3** change d’espace, **Ctrl+F** ouvre la recherche de jeux et **Ctrl+S** enregistre les réglages valides.
+
+La refonte suit les neuf passes d’[Unslop](https://github.com/heydamir/unslop), créé par **Damir Sokolovsky (@heydamir)** : rythme d’espacement de 4 px, palettes graphite sombre/clair, glyphes cohérents, libellés directs, typographie Segoe UI, navigation par tâche, focus et états explicites, aperçu de dalle dessiné en code et mouvement réservé au scan ou au compte à rebours. La méthode est adaptée à WinForms ; aucune image générée ni animation décorative n’est utilisée. Attribution et licences des éléments adaptés : [notices tierces](docs/THIRD-PARTY-NOTICES.txt).
 
 ## Résolution et taux de rafraîchissement
 
@@ -50,16 +64,16 @@ Le contrôle confirme l’acceptation par le pilote et Windows, puis demande une
 
 ## Bibliothèque de jeux
 
-Le bouton **Scanner mes jeux** lit les installations connues de Steam (y compris les bibliothèques sur plusieurs disques) et d’Epic Games. Le premier affichage après la mise à jour lance un scan automatiquement. Le scan reste dans les bibliothèques déclarées et les dossiers de jeux, peut être annulé et ne lance aucun exécutable.
+Le bouton **Scanner les jeux** lit les installations connues de Steam (y compris les bibliothèques sur plusieurs disques) et d’Epic Games. Le premier affichage après la mise à jour lance un scan automatiquement. Le scan reste dans les bibliothèques déclarées et les dossiers de jeux, peut être annulé et ne lance aucun exécutable.
 
 - La recherche et le filtre de source permettent de retrouver un jeu. Les cases cochées restent conservées après un filtre ou un nouveau scan.
 - **Prêt** : un exécutable a été reconnu ou choisi. Les jeux sélectionnés utilisent tous la résolution et la fréquence choisies.
-- **Exécutable à choisir** : sélectionner la ligne, ouvrir **Exécutables…** et cocher le fichier du jeu utilisé pendant une partie. Il est possible de parcourir le disque si le scan ne l’a pas trouvé. Le profil ne peut pas être armé avec un jeu coché non configuré.
+- **À configurer** : sélectionner la ligne, ouvrir **Choisir le fichier…** ou **Configurer…** et cocher le fichier du jeu utilisé pendant une partie. Il est possible de parcourir le disque si le scan ne l’a pas trouvé. Le profil ne peut pas être armé avec un jeu coché non configuré.
 - Les autres lanceurs (GOG, EA, Ubisoft, Xbox…) ne sont pas scannés automatiquement dans cette version. Un exécutable accessible peut être ajouté manuellement.
 - Le scan peut conserver une ancienne entrée si son disque ou son lanceur est temporairement absent. Les choix manuels restent conservés ; une installation déplacée est mise à jour lors du prochain scan.
 - Les jeux scannés et ajoutés manuellement sont reconnus par leur chemin d’exécutable. CS2 / CS:GO reste reconnu par son nom tant que l’ancien réglage n’a pas été remplacé par un scan.
 
-**Enregistrer** sauvegarde les choix. **Enregistrer et surveiller** sauvegarde et arme la surveillance. Décocher tous les jeux puis enregistrer arrête la surveillance. Annuler ferme la fenêtre sans enregistrer les changements.
+**Enregistrer** sauvegarde les choix. **Enregistrer et activer** sauvegarde et arme la surveillance. Décocher tous les jeux puis enregistrer arrête la surveillance. Annuler ferme la fenêtre sans enregistrer les changements.
 
 ## Activation automatique
 
@@ -77,7 +91,7 @@ Un second processus attend la fermeture du processus principal et tente une rest
 
 Fichiers locaux : **%LOCALAPPDATA%\AmdResolutionTray** :
 
-- settings.json : écran choisi, dimensions, fréquence, résolutions personnelles, validation du test, bibliothèque, jeux cochés, exécutables, démarrage et option de mise à jour.
+- settings.json : écran choisi, dimensions, fréquence, résolutions personnelles, validation du test, bibliothèque, jeux cochés, exécutables, démarrage, thème sombre/clair et option de mise à jour.
 - recovery.json : sauvegarde de l'affichage pendant une session.
 - app.log : erreurs locales, avec rotation limitée.
 
@@ -105,7 +119,7 @@ Les commandes --settings et --quit ouvrent les paramètres de l'instance existan
 
 À partir de la **v0.4.0**, la version portable vérifie les publications de ce dépôt GitHub au démarrage puis toutes les six heures. Les versions publiées numérotées, y compris expérimentales, sont prises en compte. Les brouillons et versions plus anciennes sont ignorés. Une panne réseau laisse l’application fonctionner ; une nouvelle vérification sera tentée plus tard.
 
-- **Mettre à jour automatiquement**, dans les paramètres, est activé par défaut et peut être désactivé.
+- **Mises à jour automatiques**, dans les paramètres, est activé par défaut et peut être désactivé.
 - **Mettre à jour maintenant…**, dans le menu de l’icône, permet de rechercher et installer une version sans attendre.
 - Le téléchargement est vérifié avec le SHA-256 et, lorsqu’il est disponible, l’empreinte fournie par GitHub. Le contenu et la version de l’exécutable Windows x64 sont également contrôlés.
 - L’installation attend la fermeture des jeux sélectionnés et des fenêtres de configuration. Le bureau est restauré avant la fermeture de l’application.
@@ -123,6 +137,7 @@ Installer le SDK .NET 10 et utiliser Windows x64. Aucune bibliothèque native AM
 ~~~powershell
 dotnet build ResolutionTray.slnx -c Release
 dotnet run --project tests/ResolutionTray.Tests -c Release
+dotnet run --project tests/ResolutionTray.UiTests -c Release
 .\build.ps1
 ~~~
 
@@ -131,6 +146,7 @@ Fermer l'application avant de recompiler dans le même dossier de sortie. build.
 - src/ResolutionTray.Core : orchestration des changements et récupération, indépendante du matériel.
 - src/ResolutionTray : interface WinForms, appels Windows et AMD ADLX, stockage et processus de récupération.
 - tests/ResolutionTray.Tests : 127 tests déterministes des profils, jeux, archives, versions et remplacements réversibles, sans modifier l’écran.
+- tests/ResolutionTray.UiTests : contrôles WinForms de navigation, sélection, filtres, géométrie minimale, validation, dialogues, thèmes et conservation des préférences. Les tests du bouton de compatibilité utilisent un substitut, sans appel AMD ni changement d’affichage.
 
 ## État de validation
 

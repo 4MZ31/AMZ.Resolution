@@ -5,5 +5,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ResolutionTray.Tests/ResolutionTray.Tests.csproj" />
+    <Project Path="tests/ResolutionTray.UiTests/ResolutionTray.UiTests.csproj" />
   </Folder>
 </Solution>
