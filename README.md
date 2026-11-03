@@ -2,7 +2,7 @@
 
 [English documentation](docs/README.en.md)
 
-Un utilitaire Windows portable pour afficher une zone **2324 × 1306 centrée** sur un écran natif **2560 × 1440** connecté à une carte AMD Radeon. Quand la surveillance est activée, il crée le mode personnalisé via AMD ADLX si nécessaire et l’applique uniquement pendant que **CS2 ou CS:GO** est ouvert.
+Un utilitaire Windows portable pour afficher une zone **2324 × 1306 centrée** sur un écran natif **2560 × 1440** connecté à une carte AMD Radeon. Quand la surveillance est activée, il crée le mode personnalisé via AMD ADLX si nécessaire et l’applique uniquement pendant qu’au moins un **jeu sélectionné** est ouvert.
 
 **Vert = résolution appliquée en jeu. Gris = surveillance désactivée ou en attente du jeu. Double-clic gauche pour activer/désactiver la surveillance ; clic droit pour le menu.**
 
@@ -13,8 +13,9 @@ Sur une dalle 27 pouces, le profil correspond à environ **24,5 pouces**, avec 1
 1. Télécharger l'archive Windows x64 depuis les [versions publiées](https://github.com/4MZ31/amd-resolution-tray/releases).
 2. Extraire toute l'archive dans un dossier permanent, puis ouvrir **ResolutionTray.exe**. Le runtime .NET est inclus dans la distribution portable.
 3. Choisir l'écran 2560 × 1440. Sa fréquence actuelle sera conservée.
-4. Cliquer sur **Enregistrer et surveiller**. Sans jeu ouvert, le bureau reste inchangé et l’icône indique **En attente de CS2 / CS:GO**. À l’ouverture du jeu, le premier essai doit être confirmé dans les 15 secondes ; sinon l’affichage précédent est restauré.
-5. La fermeture du dernier processus CS2 / CS:GO restaure automatiquement l’affichage précédent. La surveillance reste armée pour le prochain lancement. Un double-clic ou le menu clic droit permet de la désactiver et de restaurer le bureau immédiatement. Si l’icône est masquée, ouvrir le menu **^** de Windows.
+4. Cliquer sur **Scanner mes jeux**, puis cocher les jeux souhaités. Le scan détecte les bibliothèques Steam et Epic Games. **Ajouter un jeu…** permet de choisir un exécutable pour les autres installations. CS2 / CS:GO reste présélectionné lors de la mise à jour.
+5. Cliquer sur **Enregistrer et surveiller**. Sans jeu sélectionné ouvert, le bureau reste inchangé et l’icône indique **En attente d’un jeu sélectionné**. À l’ouverture du jeu, le premier essai doit être confirmé dans les 15 secondes ; sinon l’affichage précédent est restauré.
+6. La fermeture du dernier jeu sélectionné restaure automatiquement l’affichage précédent. La surveillance reste armée pour le prochain lancement. Un double-clic ou le menu clic droit permet de la désactiver et de restaurer le bureau immédiatement. Si l’icône est masquée, ouvrir le menu **^** de Windows.
 
 La validation est mémorisée pour cet écran, cette fréquence et cette version du pilote. Une modification de ces éléments déclenche une nouvelle confirmation. L'option de démarrage avec Windows lance l'utilitaire désactivé. Une fermeture anormale antérieure peut nécessiter une récupération.
 
@@ -31,9 +32,22 @@ Le menu **Désactiver la surveillance** et la commande **Quitter** restaurent le
 
 Aucun compte, accès administrateur, serveur ou service Windows n'est nécessaire. L'interface de cette première version est en français. L'exécutable n'est pas signé numériquement.
 
-## CS2 / CS:GO
+## Bibliothèque de jeux
 
-Activer la surveillance avant ou après avoir lancé le jeu. La présence de **cs2.exe** ou **csgo.exe** dans la session Windows courante est vérifiée environ une fois par seconde. Le profil reste appliqué si le jeu est réduit ou en arrière-plan, et il est restauré quand aucun de ces deux processus ne tourne. Le plein écran peut sélectionner une autre résolution et le mode sans bordure peut suivre le bureau : vérifier le résultat avec les réglages utilisés dans CS2. Si le jeu ou un autre programme change le mode ou la mise à l'échelle, l'icône revient au gris ; la restauration reste disponible. L'utilitaire ne force pas une résolution en boucle et ne s'intègre pas au processus du jeu. Une confirmation refusée ne déclenche pas de nouvelles tentatives pendant le même lancement : relancer le jeu ou désactiver/réactiver la surveillance pour réessayer. Si le jeu se ferme pendant une bascule ou sa confirmation, le profil est annulé et le bureau est restauré.
+Le bouton **Scanner mes jeux** lit les installations connues de Steam (y compris les bibliothèques sur plusieurs disques) et d’Epic Games. Le premier affichage après la mise à jour lance un scan automatiquement. Le scan reste dans les bibliothèques déclarées et les dossiers de jeux, peut être annulé et ne lance aucun exécutable.
+
+- La recherche et le filtre de source permettent de retrouver un jeu. Les cases cochées restent conservées après un filtre ou un nouveau scan.
+- **Prêt** : un exécutable a été reconnu ou choisi. Les jeux sélectionnés utilisent tous le profil 2324 × 1306.
+- **Exécutable à choisir** : sélectionner la ligne, ouvrir **Exécutables…** et cocher le fichier du jeu utilisé pendant une partie. Il est possible de parcourir le disque si le scan ne l’a pas trouvé. Le profil ne peut pas être armé avec un jeu coché non configuré.
+- Les autres lanceurs (GOG, EA, Ubisoft, Xbox…) ne sont pas scannés automatiquement dans cette version. Un exécutable accessible peut être ajouté manuellement.
+- Le scan peut conserver une ancienne entrée si son disque ou son lanceur est temporairement absent. Les choix manuels restent conservés ; une installation déplacée est mise à jour lors du prochain scan.
+- Les jeux scannés et ajoutés manuellement sont reconnus par leur chemin d’exécutable. CS2 / CS:GO reste reconnu par son nom tant que l’ancien réglage n’a pas été remplacé par un scan.
+
+**Enregistrer** sauvegarde les choix. **Enregistrer et surveiller** sauvegarde et arme la surveillance. Décocher tous les jeux puis enregistrer arrête la surveillance. Annuler ferme la fenêtre sans enregistrer les changements.
+
+## Activation automatique
+
+Activer la surveillance avant ou après avoir lancé le jeu. La présence des exécutables des jeux cochés dans la session Windows courante est vérifiée environ une fois par seconde. Le profil reste appliqué si un jeu est réduit ou en arrière-plan. Si plusieurs jeux sélectionnés sont ouverts, le bureau est restauré seulement après la fermeture du dernier. Le plein écran peut sélectionner une autre résolution et le mode sans bordure peut suivre le bureau : vérifier le résultat avec les réglages utilisés dans CS2. Si le jeu ou un autre programme change le mode ou la mise à l'échelle, l'icône revient au gris ; la restauration reste disponible. L'utilitaire ne force pas une résolution en boucle et ne s'intègre pas au processus du jeu. Une confirmation refusée ne déclenche pas de nouvelles tentatives pendant le même lancement : relancer le jeu ou désactiver/réactiver la surveillance pour réessayer. Si le jeu se ferme pendant une bascule ou sa confirmation, le profil est annulé et le bureau est restauré.
 
 La lecture des réglages Windows/AMD ne suffit pas à mesurer la taille physique de l'image ou à confirmer le comportement de tous les jeux. Vérifier visuellement le centrage, les bandes noires et la fréquence lors du premier essai.
 
@@ -47,7 +61,7 @@ Un second processus attend la fermeture du processus principal et tente une rest
 
 Fichiers locaux : **%LOCALAPPDATA%\AmdResolutionTray** :
 
-- settings.json : écran choisi, validation du profil et option de démarrage.
+- settings.json : écran choisi, validation du profil, bibliothèque, jeux cochés, chemins des exécutables et option de démarrage.
 - recovery.json : sauvegarde de l'affichage pendant une session.
 - app.log : erreurs locales, avec rotation limitée.
 
@@ -69,7 +83,9 @@ Pour obtenir un diagnostic local en lecture seule depuis PowerShell :
 
 Ce fichier contient les identifiants de vos moniteurs. Retirer ces identifiants avant de le partager dans une issue publique.
 
-Les commandes --settings et --quit ouvrent les paramètres de l'instance existante ou demandent une fermeture avec restauration.
+Les commandes --settings et --quit ouvrent les paramètres de l'instance existante ou demandent une fermeture avec restauration. --scan-games <fichier.json> exporte le résultat d’un scan en lecture seule ; cet export contient les noms et chemins des installations et reste local.
+
+La mise à jour reste manuelle : quitter l’ancienne application, extraire la nouvelle archive et remplacer ResolutionTray.exe. Les paramètres existants sont conservés.
 
 ## Développer
 
@@ -85,11 +101,11 @@ Fermer l'application avant de recompiler dans le même dossier de sortie. build.
 
 - src/ResolutionTray.Core : orchestration des changements et récupération, indépendante du matériel.
 - src/ResolutionTray : interface WinForms, appels Windows et AMD ADLX, stockage et processus de récupération.
-- tests/ResolutionTray.Tests : 37 tests déterministes des transitions, restaurations, accès concurrents et cycles de lancement/fermeture du jeu, sans modifier l’écran.
+- tests/ResolutionTray.Tests : 67 tests déterministes des transitions, restaurations, manifestes Steam/Epic, choix des exécutables et jeux simultanés, sans modifier l’écran.
 
 ## État de validation
 
-Première version expérimentale. Un essai réel a vérifié la création/application de 2324 × 1306 à 144 Hz et le centrage AMD, puis le retour automatique à 2560 × 1440 à 144 Hz sur une RX 7800 XT avec un MSI MAG272CQR. Les réglages des deux autres écrans connectés étaient identiques après restauration. Cela ne constitue pas une validation de tous les modèles d'écrans, du HDR, de FreeSync, ni du rendu dans CS2. La surveillance CS2 / CS:GO est couverte par les tests automatisés ; un essai de lancement/fermeture avec un jeu réel reste à effectuer.
+Première version expérimentale. Un essai réel a vérifié la création/application de 2324 × 1306 à 144 Hz et le centrage AMD, puis le retour automatique à 2560 × 1440 à 144 Hz sur une RX 7800 XT avec un MSI MAG272CQR. Les réglages des deux autres écrans connectés étaient identiques après restauration. Cela ne constitue pas une validation de tous les modèles d'écrans, du HDR, de FreeSync, ni du rendu dans CS2. La sélection multiple est couverte par les tests automatisés. Un scan réel des bibliothèques Steam et Epic, la recherche, les cases à cocher et leur conservation après un rescan ont été vérifiés. Le comportement des nouveaux jeux sélectionnés reste à valider sur chaque installation.
 
 ## Licence
 

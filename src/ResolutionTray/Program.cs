@@ -23,8 +23,10 @@ internal static class Program
             if (args is ["--watchdog", var parent, var session, var ticks])
                 return SafetyMonitor.RunWatchdog(int.Parse(parent), Guid.Parse(session), long.Parse(ticks));
             if (args is ["--diagnose", var output]) return Diagnose(output);
+            if (args is ["--scan-games", var catalogOutput]) return ScanGames(catalogOutput);
+            if (args is ["--preview-settings"]) return PreviewSettings();
             if (args.Length != 0 && args is not ["--settings"] && args is not ["--quit"])
-                throw new ArgumentException("Arguments : --settings, --quit ou --diagnose <fichier.json>.");
+                throw new ArgumentException("Arguments : --settings, --quit, --diagnose <fichier.json> ou --scan-games <fichier.json>.");
             using var appLock = new Mutex(false, MutexName);
             try
             {
@@ -62,10 +64,12 @@ internal static class Program
         try
         {
             var backend = new WindowsDisplayBackend();
+            var games = new SelectedGamePresence();
+            games.Update(SettingsStore.Load().GameList);
             result = new
             {
-                Application = "AMD Resolution Tray", Version = "0.2.0", ReadOnly = true,
-                CounterStrikeRunning = new CounterStrikePresence().IsRunning(),
+                Application = "AMD Resolution Tray", Version = "0.3.0", ReadOnly = true,
+                SelectedGameRunning = games.IsRunning(),
                 Displays = backend.GetDisplays().Select(display =>
                 {
                     ScalingState? scaling = null;
@@ -80,6 +84,20 @@ internal static class Program
         catch (Exception ex) { result = new { ReadOnly = true, Error = ex.ToString() }; exitCode = 1; }
         File.WriteAllText(Path.GetFullPath(output), JsonSerializer.Serialize(result, AppStorage.Json));
         return exitCode;
+    }
+
+    private static int PreviewSettings()
+    {
+        using var form = new SettingsForm(SettingsStore.Load(), new WindowsDisplayBackend().GetDisplays(), saveChanges: false);
+        form.ShowDialog();
+        return 0;
+    }
+
+    private static int ScanGames(string output)
+    {
+        var catalog = new InstalledGameScanner().ScanAsync(null, CancellationToken.None).GetAwaiter().GetResult();
+        File.WriteAllText(Path.GetFullPath(output), JsonSerializer.Serialize(catalog, AppStorage.Json));
+        return 0;
     }
 
     internal static void ShowError(Exception exception)

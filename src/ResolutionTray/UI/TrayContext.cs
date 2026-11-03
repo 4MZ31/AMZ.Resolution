@@ -8,7 +8,7 @@ internal sealed class TrayContext : ApplicationContext
 {
     private readonly WindowsDisplayBackend backend = new();
     private readonly ProfileController controller;
-    private readonly IGamePresence game = new CounterStrikePresence();
+    private readonly SelectedGamePresence game = new();
     private readonly GameModeController gameMode;
     private readonly NotifyIcon tray;
     private readonly ContextMenuStrip menu = new();
@@ -31,6 +31,7 @@ internal sealed class TrayContext : ApplicationContext
     internal TrayContext(bool showSettings)
     {
         settings = SettingsStore.Load();
+        game.Update(settings.GameList);
         openSettings = showSettings || settings.DisplayIdentity is null;
         controller = new ProfileController(backend, new RecoveryStore(), new SafetyMonitor());
         gameMode = new GameModeController(controller, game);
@@ -90,7 +91,7 @@ internal sealed class TrayContext : ApplicationContext
                 : session is not null ? "Profil interrompu — restauration disponible"
                 : !gameMode.Enabled ? "Désactivé"
                 : game.IsRunning() ? "Profil non appliqué — réactivez la surveillance"
-                : "En attente de CS2 / CS:GO";
+                : "En attente d’un jeu sélectionné";
             tray.Text = ("AMD Resolution Tray — " + status.Text)[..Math.Min(63, ("AMD Resolution Tray — " + status.Text).Length)];
             toggle.Text = gameMode.Enabled ? "Désactiver la surveillance"
                 : session is not null ? "Restaurer l’affichage précédent" : "Activer la surveillance";
@@ -104,7 +105,7 @@ internal sealed class TrayContext : ApplicationContext
     {
         if (working) return;
         if (gameMode.Enabled || controller.Session is not null) { await RestoreAsync(); return; }
-        if (settings.DisplayIdentity is null) { await OpenSettingsAsync(); return; }
+        if (settings.DisplayIdentity is null || !game.HasSelection) { await OpenSettingsAsync(); return; }
         gameMode.Enable();
         await SynchronizeGameAsync();
         await RefreshAsync();
@@ -159,15 +160,22 @@ internal sealed class TrayContext : ApplicationContext
         if (working || controller.Session is not null) return;
         SetWorking(true);
         bool activateAfter = false;
+        var wasEnabled = gameMode.Enabled;
         try
         {
             var displays = await Task.Run(backend.GetDisplays);
             using var dialog = new SettingsForm(settings, displays);
-            if (dialog.ShowDialog() == DialogResult.OK) { settings = dialog.Result; activateAfter = dialog.ActivateRequested; }
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                settings = dialog.Result;
+                game.Update(settings.GameList);
+                activateAfter = dialog.ActivateRequested || wasEnabled;
+            }
         }
         catch (Exception ex) { Program.ShowError(ex); }
         finally { SetWorking(false); }
-        if (activateAfter)
+        if (!game.HasSelection) await gameMode.DisableAsync();
+        else if (activateAfter)
         {
             gameMode.Enable();
             await SynchronizeGameAsync();

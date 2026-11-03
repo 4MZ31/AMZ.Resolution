@@ -53,7 +53,11 @@ internal sealed class RecoveryStore : IRecoveryStore
     public void Delete() => File.Delete(AppStorage.FilePath("recovery.json"));
 }
 
-internal sealed record AppSettings(string? DisplayIdentity = null, bool StartWithWindows = false, string? VerifiedProfile = null);
+internal sealed record AppSettings(string? DisplayIdentity = null, bool StartWithWindows = false,
+    string? VerifiedProfile = null, GameEntry[]? Games = null)
+{
+    internal GameEntry[] GameList => Games ?? (DisplayIdentity is null ? [] : GameCatalog.Defaults());
+}
 internal static class SettingsStore
 {
     internal static AppSettings Load()
