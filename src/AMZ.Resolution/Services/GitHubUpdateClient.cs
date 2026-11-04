@@ -104,7 +104,7 @@ internal sealed class GitHubUpdateClient : IDisposable
             {
                 if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0
                     || System.IO.Directory.GetCreationTimeUtc(directory) > DateTime.UtcNow.AddHours(-1)) continue;
-                foreach (var name in new[] { "archive.zip", "payload.exe", "AMZ.Resolution.Updater.exe", "install.json", "cancelled" })
+                foreach (var name in new[] { "archive.zip", "payload.exe", "AMZ.Resolution.Updater.exe", "ResolutionTray.Updater.exe", "install.json", "cancelled" })
                     File.Delete(Path.Combine(directory, name));
                 System.IO.Directory.Delete(directory, false);
             }
