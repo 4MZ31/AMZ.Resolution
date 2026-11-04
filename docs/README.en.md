@@ -25,6 +25,8 @@ Version 0.6.0 separates settings into **Jeux** (games), **Affichage** (display) 
 
 From **v0.6.1**, the main views use themed slim scrollbars and custom dropdown popups with a checkmark for the selected option. Arrow keys, Home/End and Page Up/Down navigate; Enter commits and Escape cancels. Long menus use the same custom scrollbar. The game table header spans the full width with no white native corner; its dividers redistribute column widths. Search has its own icon, focus feedback and clear button. Escape clears a non-empty query before closing settings; clearing/filtering preserves checked games.
 
+**v0.6.2** fixes a sizing conflict in the Display tab’s scrolling panels: selectors and preview fill the available width again. Content height and scroll range update when custom dimensions appear, the window is resized or the theme changes.
+
 Ctrl+1/2/3 navigates between pages, Ctrl+F focuses game search, Ctrl+S saves valid settings, Space checks a game and F2 opens executable configuration. The scan and display confirmation retain their functional progress/countdown; there is no decorative looping motion.
 
 The interface follows the nine-pass [Unslop](https://github.com/heydamir/unslop) method by **Damir Sokolovsky (@heydamir)**, adapted to native WinForms: spacing, color, glyphs, copy, type, task layout, interaction details, a code-drawn panel preview and purposeful motion. Adaptation credits and icon licenses are in [third-party notices](THIRD-PARTY-NOTICES.txt).

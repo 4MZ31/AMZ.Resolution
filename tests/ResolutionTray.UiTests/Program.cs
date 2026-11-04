@@ -20,7 +20,7 @@ internal static class Program
         var before = UserSettings(); var recoveryBefore = RecoveryBytes();
         try
         {
-            NavigationAndSelection(); DisplayAndCustom(); InvalidAndCancel(); Themes(); Dialogs(); CustomControls();
+            DisplayLayout(); NavigationAndSelection(); DisplayAndCustom(); InvalidAndCancel(); Themes(); Dialogs(); CustomControls();
             Assert(UserSettings() == before && RecoveryBytes() == recoveryBefore, "aucun changement des paramètres ou du journal utilisateur");
             Console.WriteLine($"{passed} contrôles UI réussis, sans changement d’affichage ni écriture des préférences."); return 0;
         }
@@ -59,6 +59,63 @@ internal static class Program
         Click(form,"nav0"); Assert(list.CheckedItems.Count == 2, "navigation conserve la sélection");
         form.ClientSize = new Size(1040,680); Application.DoEvents(); CheckButtons(form);
         Click(form,"nav1"); CheckButtons(form); Click(form,"nav2"); CheckButtons(form);
+        form.Close();
+    }
+    private static Rectangle VisibleBounds(Control control)
+    {
+        if (!control.Visible) return Rectangle.Empty;
+        var bounds = control.RectangleToScreen(control.ClientRectangle);
+        for (var parent = control.Parent; parent is not null; parent = parent.Parent)
+            bounds = Rectangle.Intersect(bounds, parent.RectangleToScreen(parent.ClientRectangle));
+        return bounds;
+    }
+    private static void DisplayLayout()
+    {
+        using var form = new SettingsForm(Settings, [Display], false, (_,_) => Task.FromResult(true));
+        Show(form); Click(form, "nav1");
+        var resolution = Find<ThemedComboBox>(form, "gameResolution");
+        var monitor = Find<ThemedComboBox>(form, "targetDisplay");
+        var rate = Find<ThemedComboBox>(form, "refreshRate");
+        var preview = Find<DisplayPreview>(form, "displayPreview");
+        var settings = resolution.Parent!.Parent!.Parent!;
+        var view = preview.Parent!.Parent!;
+        void CheckWidths(string context)
+        {
+            foreach (var card in new[] { settings, view })
+                Assert(card.Width == card.Parent!.ClientSize.Width,
+                    $"{context}: panneau Affichage à la largeur de sa vue ({card.Width}/{card.Parent!.ClientSize.Width})");
+            Assert(resolution.Parent!.Width == settings.DisplayRectangle.Width && preview.Width + preview.Margin.Horizontal == view.DisplayRectangle.Width
+                && resolution.ClientSize.Width > 0 && preview.ClientSize.Width > 0,
+                $"{context}: champs/aperçu occupent la largeur intérieure ({resolution.Parent!.Width}/{settings.DisplayRectangle.Width}, {preview.Width}/{view.DisplayRectangle.Width}, client {resolution.ClientSize.Width}/{preview.ClientSize.Width})");
+        }
+        void CheckVisible(Control control, string context) => Assert(control.ClientSize.Width > 0 && control.ClientSize.Height > 0
+            && VisibleBounds(control) == control.RectangleToScreen(control.ClientRectangle), context + ": contrôle réellement visible " + control.Name);
+        CheckWidths("ouverture");
+        foreach (var control in new Control[] { monitor, resolution, rate, preview, Find<Button>(form,"checkCompatibility") })
+            CheckVisible(control, "ouverture");
+        var presetHeight = settings.Height;
+        resolution.SelectedIndex = Option(resolution, "Personnalisée"); Application.DoEvents();
+        Assert(settings.Height > presetHeight, "dimensions personnalisées agrandissent le contenu sans redimensionner la fenêtre");
+        form.ClientSize = new Size(1040,680); Application.DoEvents(); CheckWidths("taille minimale");
+        var scroll = settings.Parent!.Parent!.Controls.OfType<SlimScrollBar>().Single();
+        Assert(scroll.Visible && scroll.Maximum == settings.Height - settings.Parent.ClientSize.Height, "contenu personnel défile selon sa hauteur réelle");
+        scroll.Value = scroll.Maximum; Application.DoEvents();
+        CheckVisible(Find<Button>(form,"checkCompatibility"), "bas du défilement");
+        CheckVisible(Find<Label>(form,"compatibilityStatus"), "bas du défilement");
+        scroll.Value = 0; Application.DoEvents(); CheckVisible(monitor, "haut du défilement");
+        resolution.SelectedIndex = 0; Application.DoEvents();
+        Assert(settings.Height == presetHeight && scroll.Value <= scroll.Maximum, "retour au préréglage réduit le contenu et borne le défilement");
+        form.ClientSize = new Size(1600,1000); Application.DoEvents(); CheckWidths("agrandissement");
+        Assert(!scroll.Visible && scroll.Maximum == 0 && settings.Top == 0, "grand format retire la barre devenue inutile");
+        form.ClientSize = new Size(1200,800); Application.DoEvents(); CheckWidths("retour taille initiale");
+        foreach (var combo in new[] { monitor, resolution, rate })
+        {
+            combo.OpenChoices(); Application.DoEvents();
+            Assert(combo.IsPopupOpen && combo.ChoiceList is { Visible:true, Width:>0, Height:>0 }, "menu Affichage accessible et rendu: " + combo.Name);
+            combo.CloseChoices(); Application.DoEvents();
+        }
+        Click(form,"nav2"); Find<CheckBox>(form,"darkMode").Checked = false; Click(form,"nav1"); CheckWidths("thème clair");
+        Click(form,"nav0"); Assert(Find<ListView>(form,"gameLibrary").CheckedItems.Count == 1, "correction du layout conserve la sélection des jeux");
         form.Close();
     }
     private static void DisplayAndCustom()

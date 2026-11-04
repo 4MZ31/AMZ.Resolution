@@ -115,8 +115,14 @@ internal sealed class ScrollViewport : UserControl
     internal void SetContent(Control child)
     {
         if (content is not null) throw new InvalidOperationException("Le contenu du défilement est déjà défini.");
-        content = child; child.Dock = DockStyle.None; child.Margin = Padding.Empty;
-        viewport.Controls.Add(child); child.SizeChanged += (_, _) => UpdateScroll(); HookWheel(child); UpdateScroll();
+        // This viewport owns both bounds. AutoSize would shrink a Dock=None panel
+        // with top/fill-docked children back to its horizontal padding (48 px).
+        // Measure its preferred height explicitly, while keeping the viewport width.
+        content = child; child.AutoSize = false; child.Dock = DockStyle.None; child.Margin = Padding.Empty;
+        viewport.Controls.Add(child);
+        child.SizeChanged += (_, _) => UpdateScroll();
+        child.Layout += (_, _) => UpdateScroll();
+        HookWheel(child); UpdateScroll();
     }
     private void HookWheel(Control child)
     {

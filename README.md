@@ -44,6 +44,8 @@ Le changement de thème est immédiat dans la fenêtre. **Enregistrer** ou **Enr
 
 À partir de la **v0.6.1**, les vues principales utilisent des barres de défilement fines et des menus déroulants dessinés dans le thème actif. Les menus affichent une coche sur la valeur choisie ; les flèches, Début/Fin et Page précédente/suivante déplacent le choix, Entrée valide et Échap annule. Les longues listes défilent avec la même poignée. L’en-tête du tableau couvre toute sa largeur, y compris à droite, sans bandeau système blanc. Les séparateurs des colonnes permettent d’ajuster leur répartition.
 
+La **v0.6.2** corrige le conflit de dimensionnement introduit dans les panneaux défilants de l’onglet Affichage : les sélecteurs et l’aperçu occupent à nouveau la largeur disponible. La hauteur et le défilement se recalculent lors de l’affichage des dimensions personnalisées, du redimensionnement de la fenêtre et du changement de thème.
+
 La recherche possède son propre champ avec icône, focus visible et bouton **Effacer la recherche**. Échap efface d’abord une saisie non vide ; quand la recherche est vide, Échap garde son rôle de fermeture des paramètres. Effacer la recherche ou changer le filtre ne décoche pas les jeux.
 
 Le pied de fenêtre reste visible dans chaque espace : résolution/fréquence, modifications non enregistrées ou raison bloquant l’enregistrement. **Voir** ramène au réglage à terminer. Les choix de jeux et d’affichage sont conservés quand on change de page ou de filtre. **Ctrl+1/2/3** change d’espace, **Ctrl+F** ouvre la recherche de jeux et **Ctrl+S** enregistre les réglages valides.
