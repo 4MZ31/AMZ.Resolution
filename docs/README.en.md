@@ -1,4 +1,6 @@
-# AMD Resolution Tray
+# AMZ.Resolution
+
+From v0.7.0, **AMZ.Resolution** is the final product name throughout the app, executable, solution, archives and GitHub repository. The old repository remains only as a compatibility endpoint so existing clients can update to the new app. Existing installations may retain their old executable filename during this transition; new downloads use **AMZ.Resolution.exe**.
 
 [Documentation française](../README.md)
 
@@ -8,7 +10,7 @@ A portable Windows tray utility for a **centered preset or custom desktop resolu
 
 ## Get started
 
-1. Download the Windows x64 ZIP from [Releases](https://github.com/4MZ31/amd-resolution-tray/releases), extract it to a permanent folder and run ResolutionTray.exe. The portable release includes the .NET runtime.
+1. Download the Windows x64 ZIP from [Releases](https://github.com/4MZ31/AMZ.Resolution/releases), extract it to a permanent folder and run AMZ.Resolution.exe. The portable release includes the .NET runtime.
 2. Select your native 1440p display, resolution and refresh rate. The default remains 2324 × 1306 with the desktop refresh rate. Detected rates come from the display’s progressive native modes.
 3. Click **Scanner les jeux** to scan Steam and Epic Games installations, then check the games to monitor. **Ajouter un jeu…** adds other accessible Windows executables. Existing CS2 / CS:GO users keep their default selection.
 4. Choose **Enregistrer et activer**. Without a selected game running, the desktop stays unchanged and the tray reads **En attente d’un jeu sélectionné**.
@@ -63,10 +65,10 @@ Enable monitoring before or after launching the game. The app checks the selecte
 
 Original display and scaling settings are stored before any driver mutation. A separate process attempts restoration if the main process crashes. Complete Windows shutdown, driver failure and disconnected monitors can prevent immediate recovery; the journal is retained for the next launch. Do not delete recovery.json until the display is restored.
 
-Settings, recovery data and local error logs live in **%LOCALAPPDATA%\AmdResolutionTray**. There is no telemetry. A read-only diagnostic can be generated with:
+Settings, recovery data and local error logs live in **%LOCALAPPDATA%\AmdResolutionTray** (the stable legacy identifier preserves settings and recovery journals across the rename). There is no telemetry. A read-only diagnostic can be generated with:
 
 ~~~powershell
-.\ResolutionTray.exe --diagnose "$env:TEMP\resolution-tray.json"
+.\AMZ.Resolution.exe --diagnose "$env:TEMP\amz-resolution.json"
 ~~~
 
 Diagnostics include monitor identifiers; remove them before posting a public issue. Use --settings to reopen settings and --quit to request a graceful exit. --scan-games <file.json> exports a read-only game scan containing installation names and paths. From v0.4.0, portable releases update automatically; upgrading from an older version requires one final manual replacement. Existing settings are preserved.
@@ -77,16 +79,16 @@ The portable app checks this GitHub repository at startup and every six hours, i
 
 Downloads are checked against the published SHA-256 and GitHub digest when present, then the Windows x64 executable format and file version are verified. Installation waits until selected games and configuration windows are closed. The desktop is restored before exit. A separate process replaces the executable in its current folder, relaunches it and keeps a backup until startup is acknowledged. Failed startup restores and relaunches the previous version. Armed monitoring resumes, and settings are preserved.
 
-The install folder must be writable by the current user; no elevation is requested. Upgrade from v0.3.0 or earlier once by quitting the old app, extracting v0.4.0 and replacing ResolutionTray.exe. Future updates are automatic. Development builds do not replace themselves. Temporary downloads under %LOCALAPPDATA%\AmdResolutionTray\Updates are cleaned during later checks. Update requests contact GitHub and its download servers; game paths and settings stay local. Checksums verify download integrity, not publisher signatures. To uninstall, disable startup in settings, exit and remove the extracted folder. The custom AMD mode can be removed separately in Adrenalin.
+The install folder must be writable by the current user; no elevation is requested. Upgrade from v0.3.0 or earlier once by quitting the old app, extracting the latest release and replacing AMZ.Resolution.exe. Future updates are automatic. Development builds do not replace themselves. Temporary downloads under %LOCALAPPDATA%\AmdResolutionTray\Updates are cleaned during later checks. Update requests contact GitHub and its download servers; game paths and settings stay local. Checksums verify download integrity, not publisher signatures. To uninstall, disable startup in settings, exit and remove the extracted folder. The custom AMD mode can be removed separately in Adrenalin.
 
 ## Build and validation
 
 .NET 10 SDK on Windows x64; no redistributed AMD binaries or external NuGet dependencies.
 
 ~~~powershell
-dotnet build ResolutionTray.slnx -c Release
-dotnet run --project tests/ResolutionTray.Tests -c Release
-dotnet run --project tests/ResolutionTray.UiTests -c Release
+dotnet build AMZ.Resolution.slnx -c Release
+dotnet run --project tests/AMZ.Resolution.Tests -c Release
+dotnet run --project tests/AMZ.Resolution.UiTests -c Release
 .\build.ps1
 ~~~
 

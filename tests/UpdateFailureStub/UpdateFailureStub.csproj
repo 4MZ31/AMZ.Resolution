@@ -2,8 +2,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>ResolutionTray</AssemblyName>
-    <Product>ResolutionTray</Product>
+    <AssemblyName>AMZ.Resolution</AssemblyName>
+    <Product>AMZ.Resolution</Product>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 </Project>

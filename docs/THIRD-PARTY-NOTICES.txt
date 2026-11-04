@@ -1,4 +1,4 @@
-ResolutionTray interface acknowledgements
+AMZ.Resolution interface acknowledgements
 
 Unslop
 Created by Damir Sokolovsky (@heydamir)
@@ -9,7 +9,7 @@ https://creativecommons.org/licenses/by/4.0/
 
 The interface design method and token guidance were adapted to native WinForms,
 with application-specific dark/light palettes, controls and a display-area preview.
-This acknowledgement does not change the MIT license of ResolutionTray's code.
+This acknowledgement does not change the MIT license of AMZ.Resolution's code.
 
 Lucide
 https://lucide.dev/

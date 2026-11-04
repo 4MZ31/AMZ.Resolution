@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AMZ.Resolution.Core/AMZ.Resolution.Core.csproj" />
+    <Project Path="src/AMZ.Resolution/AMZ.Resolution.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AMZ.Resolution.Tests/AMZ.Resolution.Tests.csproj" />
+    <Project Path="tests/AMZ.Resolution.UiTests/AMZ.Resolution.UiTests.csproj" />
+  </Folder>
+</Solution>

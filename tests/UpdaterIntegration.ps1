@@ -1,9 +1,15 @@
 param(
     [Parameter(Mandatory = $true)][string]$ApplicationExe,
+    [string]$PayloadExe,
+    [switch]$LegacyProtocol,
     [switch]$RequireRun
 )
 $ErrorActionPreference = 'Stop'
 $applicationPath = (Resolve-Path -LiteralPath $ApplicationExe).Path
+$payloadPath = if ($PayloadExe) { (Resolve-Path -LiteralPath $PayloadExe).Path } else { $applicationPath }
+$targetName = if ($LegacyProtocol) { 'ResolutionTray.exe' } else { 'AMZ.Resolution.exe' }
+$helperName = if ($LegacyProtocol) { 'ResolutionTray.Updater.exe' } else { 'AMZ.Resolution.Updater.exe' }
+$payloadProduct = if ($LegacyProtocol) { 'ResolutionTray' } else { 'AMZ.Resolution' }
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $artifactsRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts'))
 $dataRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'AmdResolutionTray'
@@ -21,10 +27,10 @@ if (-not $free -or (Test-Path -LiteralPath (Join-Path $dataRoot 'recovery.json')
     Write-Output 'SKIP: existing application, recovery session or update notification; user state preserved.'
     exit 0
 }
-$versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($applicationPath)
+$versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($payloadPath)
 $version = '{0}.{1}.{2}' -f $versionInfo.FileMajorPart, $versionInfo.FileMinorPart, $versionInfo.FileBuildPart
 $failureDir = Join-Path $artifactsRoot 'update-failure-stub'
-dotnet publish (Join-Path $PSScriptRoot 'UpdateFailureStub\UpdateFailureStub.csproj') -c Release -r win-x64 --self-contained true -o $failureDir -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:DebugSymbols=false -p:Version=$version
+dotnet publish (Join-Path $PSScriptRoot 'UpdateFailureStub\UpdateFailureStub.csproj') -c Release -r win-x64 --self-contained true -o $failureDir -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:DebugSymbols=false -p:Version=$version -p:Product=$payloadProduct
 if ($LASTEXITCODE -ne 0) { throw 'Failure stub build failed.' }
 $originalHash = (Get-FileHash -LiteralPath $applicationPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $expectedSettings = Join-Path $dataRoot 'settings.json'
@@ -35,12 +41,12 @@ foreach ($case in @('success', 'rollback')) {
     $targetDir = [IO.Path]::GetFullPath((Join-Path $artifactsRoot ('updater-integration-' + $jobId.ToString('N'))))
     if (-not $targetDir.StartsWith($artifactsRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe integration target.' }
     New-Item -ItemType Directory -Path $stage, $targetDir -Force | Out-Null
-    $target = Join-Path $targetDir 'ResolutionTray.exe'
-    $helperPath = Join-Path $stage 'ResolutionTray.Updater.exe'
+    $target = Join-Path $targetDir $targetName
+    $helperPath = Join-Path $stage $helperName
     $payload = Join-Path $stage 'payload.exe'
     Copy-Item -LiteralPath $applicationPath -Destination $target
     Copy-Item -LiteralPath $applicationPath -Destination $helperPath
-    $sourcePayload = if ($case -eq 'success') { $applicationPath } else { Join-Path $failureDir 'ResolutionTray.exe' }
+    $sourcePayload = if ($case -eq 'success') { $payloadPath } else { Join-Path $failureDir 'AMZ.Resolution.exe' }
     Copy-Item -LiteralPath $sourcePayload -Destination $payload
     $payloadHash = (Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant()
     $ready = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $mutexName + '-UpdateReady-' + $jobId)
@@ -58,16 +64,17 @@ foreach ($case in @('success', 'rollback')) {
         $expectedExit = if ($case -eq 'success') { 0 } else { 1 }
         if ($helper.ExitCode -ne $expectedExit) { throw "Updater exit $($helper.ExitCode), expected $expectedExit ($case)." }
         $actualHash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actualHash -ne $originalHash) { throw "Target was not restored correctly: $case" }
+        $expectedHash = if ($case -eq 'success') { $payloadHash } else { $originalHash }
+        if ($actualHash -ne $expectedHash) { throw "Target was not restored correctly: $case" }
         Start-Sleep -Milliseconds 500
-        $child = Get-CimInstance Win32_Process -Filter "Name = 'ResolutionTray.exe'" | Where-Object { $_.ExecutablePath -ieq $target }
+        $child = Get-CimInstance Win32_Process -Filter "Name = '$targetName'" | Where-Object { $_.ExecutablePath -ieq $target }
         if (@($child).Count -ne 1) { throw "Expected exactly one restarted application: $case" }
         Write-Output "PASS native updater $case (restart, health acknowledgement/rollback, original bytes verified)."
     }
     finally {
         $ready.Dispose()
         if (-not $helper.HasExited) { Stop-Process -Id $helper.Id -Force }
-        Get-CimInstance Win32_Process -Filter "Name = 'ResolutionTray.exe'" | Where-Object { $_.ExecutablePath -ieq $target } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+        Get-CimInstance Win32_Process -Filter "Name = '$targetName'" | Where-Object { $_.ExecutablePath -ieq $target } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
         $helper.Dispose(); $parent.Dispose()
         $outcomePath = Join-Path $dataRoot 'last-update.json'
         if (Test-Path -LiteralPath $outcomePath) {

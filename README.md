@@ -1,4 +1,6 @@
-# AMD Resolution Tray
+# AMZ.Resolution
+
+À partir de la v0.7.0, le projet porte son nom définitif **AMZ.Resolution** : application, fenêtres, icône de notification, exécutable, solution, archives et dépôt GitHub. Les anciennes installations reçoivent une version de transition via l’ancien dépôt, conservé uniquement comme point de compatibilité pour les mises à jour. Cette transition peut conserver leur ancien nom de fichier exécutable ; les nouveaux téléchargements utilisent **AMZ.Resolution.exe**.
 
 [English documentation](docs/README.en.md)
 
@@ -10,8 +12,8 @@ Sur une dalle 27 pouces, le profil correspond à environ **24,5 pouces**, avec 1
 
 ## Télécharger et démarrer
 
-1. Télécharger l'archive Windows x64 depuis les [versions publiées](https://github.com/4MZ31/amd-resolution-tray/releases).
-2. Extraire toute l'archive dans un dossier permanent, puis ouvrir **ResolutionTray.exe**. Le runtime .NET est inclus dans la distribution portable.
+1. Télécharger l'archive Windows x64 depuis les [versions publiées](https://github.com/4MZ31/AMZ.Resolution/releases).
+2. Extraire toute l'archive dans un dossier permanent, puis ouvrir **AMZ.Resolution.exe**. Le runtime .NET est inclus dans la distribution portable.
 3. Choisir l’écran 2560 × 1440, la résolution et le taux de rafraîchissement. **Fréquence du bureau** conserve la fréquence au moment de l’activation ; les autres choix sont détectés sur l’écran. Le profil initial reste 2324 × 1306 avec la fréquence du bureau.
 4. Cliquer sur **Scanner les jeux**, puis cocher les jeux souhaités. Le scan détecte les bibliothèques Steam et Epic Games. **Ajouter un jeu…** permet de choisir un exécutable pour les autres installations. CS2 / CS:GO reste présélectionné lors de la mise à jour.
 5. Cliquer sur **Enregistrer et activer**. Sans jeu sélectionné ouvert, le bureau reste inchangé et l’icône indique **En attente d’un jeu sélectionné**. À l’ouverture du jeu, le premier essai doit être confirmé dans les 15 secondes ; sinon l’affichage précédent est restauré.
@@ -95,7 +97,7 @@ La création automatique conserve les timings du mode courant pour éviter un ar
 
 Un second processus attend la fermeture du processus principal et tente une restauration si une session reste active. Il ne peut pas intervenir pendant un arrêt complet de Windows ou une panne du pilote. Si la restauration est impossible, la sauvegarde est conservée et proposée au prochain lancement. Ne pas supprimer recovery.json avant d'avoir rétabli l'affichage.
 
-Fichiers locaux : **%LOCALAPPDATA%\AmdResolutionTray** :
+Fichiers locaux : **%LOCALAPPDATA%\AmdResolutionTray** (identifiant historique conservé pour retrouver les paramètres et les données de récupération après le renommage) :
 
 - settings.json : écran choisi, dimensions, fréquence, résolutions personnelles, validation du test, bibliothèque, jeux cochés, exécutables, démarrage, thème sombre/clair et option de mise à jour.
 - recovery.json : sauvegarde de l'affichage pendant une session.
@@ -114,7 +116,7 @@ L'application n'envoie aucune télémétrie. Ces fichiers, les EDID et les ident
 Pour obtenir un diagnostic local en lecture seule depuis PowerShell :
 
 ~~~powershell
-.\ResolutionTray.exe --diagnose "$env:TEMP\resolution-tray.json"
+.\AMZ.Resolution.exe --diagnose "$env:TEMP\amz-resolution.json"
 ~~~
 
 Ce fichier contient les identifiants de vos moniteurs. Retirer ces identifiants avant de le partager dans une issue publique.
@@ -132,7 +134,7 @@ Les commandes --settings et --quit ouvrent les paramètres de l'instance existan
 - Un processus séparé remplace l’exécutable dans son dossier actuel puis redémarre l’application. Si son démarrage n’est pas confirmé, l’ancienne version est restaurée et relancée. Les réglages ne sont pas remplacés ; la surveillance précédemment armée reprend au redémarrage.
 - Aucune élévation administrateur n’est demandée. Le dossier contenant l’application doit être accessible en écriture (par exemple un dossier utilisateur). Un dossier protégé peut nécessiter de déplacer l’application.
 
-**Installation initiale depuis une version antérieure à v0.4.0 :** quitter l’ancienne application, télécharger et extraire une dernière fois la nouvelle archive, puis remplacer ResolutionTray.exe. Les mises à jour suivantes sont automatiques. Les builds de développement ne s’auto-remplacent pas.
+**Installation initiale depuis une version antérieure à v0.4.0 :** quitter l’ancienne application, télécharger et extraire une dernière fois la nouvelle archive, puis remplacer AMZ.Resolution.exe. Les mises à jour suivantes sont automatiques. Les builds de développement ne s’auto-remplacent pas.
 
 Les téléchargements temporaires sont placés dans **%LOCALAPPDATA%\AmdResolutionTray\Updates**. Les anciennes préparations sont nettoyées lors des vérifications suivantes. Les requêtes contactent GitHub et ses serveurs de téléchargement ; la liste de jeux et les réglages restent locaux. Le SHA-256 contrôle l’intégrité du téléchargement et ne constitue pas une signature de l’éditeur.
 
@@ -141,18 +143,18 @@ Les téléchargements temporaires sont placés dans **%LOCALAPPDATA%\AmdResoluti
 Installer le SDK .NET 10 et utiliser Windows x64. Aucune bibliothèque native AMD n'est redistribuée ; l'application charge celle du pilote installé. Les liaisons C# suivent les signatures du [SDK ADLX officiel](https://github.com/GPUOpen-LibrariesAndSDKs/ADLX/tree/32b5a740d42295c5dfe9026b9f52683da0f3af91/SDK/Include).
 
 ~~~powershell
-dotnet build ResolutionTray.slnx -c Release
-dotnet run --project tests/ResolutionTray.Tests -c Release
-dotnet run --project tests/ResolutionTray.UiTests -c Release
+dotnet build AMZ.Resolution.slnx -c Release
+dotnet run --project tests/AMZ.Resolution.Tests -c Release
+dotnet run --project tests/AMZ.Resolution.UiTests -c Release
 .\build.ps1
 ~~~
 
 Fermer l'application avant de recompiler dans le même dossier de sortie. build.ps1 exécute les tests, produit l'exécutable autonome, l'archive ZIP et son empreinte SHA-256 dans artifacts/. GitHub Actions réalise les mêmes vérifications sur Windows, puis teste le redémarrage réel et le retour arrière de l’installateur sur des copies isolées.
 
-- src/ResolutionTray.Core : orchestration des changements et récupération, indépendante du matériel.
-- src/ResolutionTray : interface WinForms, appels Windows et AMD ADLX, stockage et processus de récupération.
-- tests/ResolutionTray.Tests : 127 tests déterministes des profils, jeux, archives, versions et remplacements réversibles, sans modifier l’écran.
-- tests/ResolutionTray.UiTests : contrôles WinForms de navigation, sélection, filtres, géométrie minimale, validation, dialogues, thèmes et conservation des préférences. Les tests du bouton de compatibilité utilisent un substitut, sans appel AMD ni changement d’affichage.
+- src/AMZ.Resolution.Core : orchestration des changements et récupération, indépendante du matériel.
+- src/AMZ.Resolution : interface WinForms, appels Windows et AMD ADLX, stockage et processus de récupération.
+- tests/AMZ.Resolution.Tests : 127 tests déterministes des profils, jeux, archives, versions et remplacements réversibles, sans modifier l’écran.
+- tests/AMZ.Resolution.UiTests : contrôles WinForms de navigation, sélection, filtres, géométrie minimale, validation, dialogues, thèmes et conservation des préférences. Les tests du bouton de compatibilité utilisent un substitut, sans appel AMD ni changement d’affichage.
 
 ## État de validation
 
