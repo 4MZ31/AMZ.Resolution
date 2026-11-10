@@ -49,7 +49,8 @@ internal sealed partial class SettingsForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         BuildShell(monitoringEnabled);
         startup.Checked = StartupRegistration.IsEnabled;
-        automaticUpdates.Checked = settings.AutoUpdate;
+        automaticUpdates.Checked = settings.AutoUpdate && UpdateInstaller.CanInstall;
+        automaticUpdates.Enabled = UpdateInstaller.CanInstall;
         darkMode.Checked = settings.DarkMode;
         InitializeDisplay(settings);
         search.TextChanged += (_, _) => RenderLibrary();

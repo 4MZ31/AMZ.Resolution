@@ -5,31 +5,91 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '23 7 * * 1'
 permissions:
   contents: read
+concurrency:
+  group: windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          dotnet-version: '10.0.x'
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73
+        with:
+          global-json-file: global.json
       - name: Build solution
         run: dotnet build AMZ.Resolution.slnx -c Release --nologo
       - name: Test and package portable application
         shell: pwsh
         run: ./build.ps1
-      - name: Verify native updater restart and rollback
+      - name: Verify authenticated updater restart and rollback
         shell: pwsh
         run: ./tests/UpdaterIntegration.ps1 -ApplicationExe ./artifacts/portable/AMZ.Resolution.exe -RequireRun
       - name: Verify update from the pre-rename application
         shell: pwsh
         run: ./tests/LegacyUpdaterIntegration.ps1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: AMZ.Resolution-win-x64
           path: |
             artifacts/*.zip
+            artifacts/*.exe
             artifacts/*.sha256
+            artifacts/build-info.json
+            artifacts/release-notes.md
           if-no-files-found: error
+          retention-days: 30
+  publish:
+    needs: windows
+    if: github.repository == '4MZ31/AMZ.Resolution' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: AMZ.Resolution-win-x64
+          path: dist
+      - name: Check exact artifact hashes and version
+        id: version
+        working-directory: dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check --strict *.sha256
+          version=$(jq -r .Version build-info.json)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test -f "AMZ.Resolution-$version-win-x64.zip"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-path: |
+            dist/*.zip
+            dist/*.exe
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' > draft.txt 2>/dev/null; then
+            if [ "$(cat draft.txt)" != true ]; then
+              echo 'Existing published release preserved; no asset overwritten.'
+              exit 0
+            fi
+            echo 'Existing draft requires explicit review; no asset overwritten.' >&2
+            exit 1
+          fi
+          gh attestation verify dist/AMZ.Resolution.exe --repo "$GITHUB_REPOSITORY" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build.yml"
+          gh release create "$RELEASE_TAG" dist/*.exe dist/*.zip dist/*.sha256 dist/build-info.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --title "AMZ.Resolution $RELEASE_TAG - Sécurité et récupération" --notes-file dist/release-notes.md
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest

@@ -56,7 +56,7 @@ internal sealed class InstalledGameScanner
 
         void AddInstallation(GameInstallation installation)
         {
-            if (!Directory.Exists(installation.Directory) || games.Count >= 2000) return;
+            if (!LocalGamePath.IsLocal(installation.Directory) || !Directory.Exists(installation.Directory) || games.Count >= 2000) return;
             progress?.Report(new($"{installation.Source} · {installation.Name}", games.Count));
             var paths = FindExecutables(installation.Directory, cancellation, out var incomplete).ToList();
             if (installation.LaunchExecutable is { } launch && File.Exists(launch)) paths.Add(launch);
@@ -75,7 +75,7 @@ internal sealed class InstalledGameScanner
 
     private static string[] Files(string directory, string pattern, ref int warnings)
     {
-        if (!Directory.Exists(directory)) return [];
+        if (!LocalGamePath.IsLocal(directory) || !Directory.Exists(directory)) return [];
         try { return Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { warnings++; return []; }
     }
@@ -87,13 +87,13 @@ internal sealed class InstalledGameScanner
         Read(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath");
         Read(Registry.LocalMachine, @"SOFTWARE\Valve\Steam", "InstallPath");
         roots.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"));
-        return roots.Where(Directory.Exists);
+        return roots.Where(LocalGamePath.IsLocal).Where(Directory.Exists);
         void Read(RegistryKey registry, string path, string value)
         {
             try
             {
                 using var key = registry.OpenSubKey(path);
-                if (key?.GetValue(value) is string root && Path.IsPathFullyQualified(root)) roots.Add(Path.GetFullPath(root));
+                if (key?.GetValue(value) is string root && LocalGamePath.IsLocal(root)) roots.Add(Path.GetFullPath(root));
             }
             catch (System.Security.SecurityException) { }
             catch (UnauthorizedAccessException) { }
@@ -120,6 +120,7 @@ internal sealed class InstalledGameScanner
             var (directory, depth) = pending.Dequeue();
             try
             {
+                if (!LocalGamePath.IsLocal(directory)) continue;
                 if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) continue;
                 found.AddRange(Directory.EnumerateFiles(directory, "*.exe").Where(GameExecutables.IsCandidate).Take(256 - found.Count));
                 if (depth >= 6) continue;

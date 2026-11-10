@@ -25,7 +25,8 @@ public sealed record UpdateRelease(Version Version, string Tag, string ArchiveNa
         foreach (var item in document.RootElement.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.Object || !item.TryGetProperty("draft", out var draft)
-                || draft.ValueKind != JsonValueKind.False) continue;
+                || draft.ValueKind != JsonValueKind.False
+                || !item.TryGetProperty("prerelease", out var preview) || preview.ValueKind != JsonValueKind.False) continue;
             var tag = Text(item, "tag_name");
             if (!TryVersion(tag, out var version) || version <= current) continue;
             if (!item.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array) continue;

@@ -24,7 +24,7 @@ internal static class UpdateTests
             ["name"] = filename, ["size"] = 1000, ["state"] = "uploaded",
             ["browser_download_url"] = $"https://{host}/{UpdateRelease.Repository}/releases/download/v{version}/{filename}"
         };
-        return new() { ["tag_name"] = "v" + version, ["draft"] = draft, ["prerelease"] = true,
+        return new() { ["tag_name"] = "v" + version, ["draft"] = draft, ["prerelease"] = false,
             ["assets"] = new[] { Asset(name), Asset(name + ".sha256") } };
     }
     private static UpdateRelease? Select(params Dictionary<string, object?>[] items) =>
@@ -35,7 +35,12 @@ internal static class UpdateTests
         yield return Test("MAJ: version publiée la plus récente, ordre numérique", () =>
             Check(Select(Release("0.5.0"), Release("0.10.0"), Release("0.9.0"))!.Version == new Version(0, 10, 0)));
         yield return Test("MAJ: brouillons ignorés", () => Check(Select(Release("0.9.0", true), Release("0.5.0"))!.Version == new Version(0, 5, 0)));
-        yield return Test("MAJ: versions expérimentales du projet acceptées", () => Check(Select(Release("0.5.0")) is not null));
+        yield return Test("MAJ: préversions exclues du canal stable", () =>
+        {
+            var preview = Release("0.9.0"); preview["prerelease"] = true;
+            Check(Select(preview, Release("0.5.0"))!.Version == new Version(0, 5, 0));
+            Check(Select(preview) is null);
+        });
         yield return Test("MAJ: aucune réinstallation ou rétrogradation", () => Check(Select(Release("0.4.0"), Release("0.3.0")) is null));
         yield return Test("MAJ: tags non numériques ignorés", () => Check(!UpdateRelease.TryVersion("v0.5.0-beta", out _) && !UpdateRelease.TryVersion("v0.5.0.1", out _)));
         yield return Test("MAJ: URL d’un autre domaine refusée", () => Check(Select(Release("0.5.0", host: "example.com")) is null));

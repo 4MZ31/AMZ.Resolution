@@ -152,7 +152,7 @@ internal sealed partial class SettingsForm
         var rows = UiTheme.Stack(64, 8, 64, 8, 64); rows.Dock = DockStyle.Fill;
         rows.Controls.Add(Preference("Mode sombre", "Désactivez pour utiliser le mode clair", darkMode)); rows.Controls.Add(new Panel());
         rows.Controls.Add(Preference("Démarrage avec Windows", "La surveillance reste désactivée au démarrage", startup)); rows.Controls.Add(new Panel());
-        rows.Controls.Add(Preference("Mises à jour automatiques", "Recherche au démarrage, puis toutes les 6 heures", automaticUpdates)); preferences.Controls.Add(rows); layout.Controls.Add(preferences);
+        rows.Controls.Add(Preference("Mises à jour automatiques", UpdateInstaller.CanInstall ? "Versions stables signées, toutes les 6 heures" : "Installation manuelle : éditeur non signé", automaticUpdates)); preferences.Controls.Add(rows); layout.Controls.Add(preferences);
         layout.Controls.Add(new Panel());
         var tray = new SurfacePanel { Dock = DockStyle.Fill };
         var help = UiTheme.Stack(28, 28, 40);

@@ -10,17 +10,35 @@ try {
     $publishDir = Join-Path $PSScriptRoot 'artifacts\portable'
     dotnet publish src/AMZ.Resolution/AMZ.Resolution.csproj -c $Configuration -r win-x64 --self-contained true -o $publishDir -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:DebugSymbols=false -p:CopyRetryCount=0
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
-    Copy-Item -LiteralPath README.md, LICENSE -Destination $publishDir
+    Copy-Item -LiteralPath README.md, LICENSE, SECURITY.md -Destination $publishDir
     $docsDir = Join-Path $publishDir 'docs'
     New-Item -ItemType Directory -Path $docsDir -Force | Out-Null
     Copy-Item -LiteralPath docs/README.en.md, docs/THIRD-PARTY-NOTICES.txt -Destination $docsDir
     $project = [xml](Get-Content -LiteralPath src/AMZ.Resolution/AMZ.Resolution.csproj -Raw)
     $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText
     $archive = Join-Path $PSScriptRoot ("artifacts\AMZ.Resolution-$version-win-x64.zip")
-    Compress-Archive -LiteralPath (Join-Path $publishDir 'AMZ.Resolution.exe'), (Join-Path $publishDir 'README.md'), (Join-Path $publishDir 'LICENSE'), (Join-Path $publishDir 'docs') -DestinationPath $archive -Force
+    Compress-Archive -LiteralPath (Join-Path $publishDir 'AMZ.Resolution.exe'), (Join-Path $publishDir 'README.md'), (Join-Path $publishDir 'LICENSE'), (Join-Path $publishDir 'SECURITY.md'), (Join-Path $publishDir 'docs') -DestinationPath $archive -Force
     $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
     [IO.File]::WriteAllText($archive + '.sha256', $hash + '  ' + [IO.Path]::GetFileName($archive) + [Environment]::NewLine)
     Write-Output "Portable archive: $archive"
+    $standalone = Join-Path $PSScriptRoot 'artifacts/AMZ.Resolution.exe'
+    Copy-Item -LiteralPath (Join-Path $publishDir 'AMZ.Resolution.exe') -Destination $standalone
+    $exeHash = (Get-FileHash -LiteralPath $standalone -Algorithm SHA256).Hash.ToLowerInvariant()
+    [IO.File]::WriteAllText($standalone + '.sha256', $exeHash + '  AMZ.Resolution.exe' + [Environment]::NewLine)
+    $assets = Get-Content src/AMZ.Resolution/obj/project.assets.json -Raw | ConvertFrom-Json -AsHashtable
+    $runtimePacks = @($assets.libraries.Keys | Where-Object { $_ -match 'Microsoft\.(NETCore|WindowsDesktop)\.App\.Runtime' })
+    [ordered]@{
+        Version = $version
+        Commit = if ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { (git rev-parse HEAD) }
+        Sdk = (dotnet --version)
+        RuntimePacks = $runtimePacks
+        RunnerImage = $env:ImageVersion
+        ExecutableSha256 = $exeHash
+        ArchiveSha256 = $hash
+        Authenticode = (Get-AuthenticodeSignature -FilePath $standalone).Status.ToString()
+    } | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $PSScriptRoot 'artifacts/build-info.json') -Encoding utf8
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "docs/releases/$version.md") -Destination (Join-Path $PSScriptRoot 'artifacts/release-notes.md')
+
     if ($version -eq '0.7.0') {
         # One-time compatibility build for clients that validate the original product identity.
         $bridgeDir = Join-Path $PSScriptRoot 'artifacts\legacy-bridge'

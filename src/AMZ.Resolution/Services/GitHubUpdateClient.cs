@@ -63,6 +63,7 @@ internal sealed class GitHubUpdateClient : IDisposable
         }
         var payload = await UpdateArchive.ExtractAsync(archive, expected, directory, token);
         VerifyExecutable(payload, release.Version);
+        UpdateTrust.Verify(payload);
         return new(release.Version, directory, payload, await Task.Run(() => UpdateArchive.HashFile(payload), token));
     }
     internal static void VerifyExecutable(string file, Version expected)
@@ -104,6 +105,17 @@ internal sealed class GitHubUpdateClient : IDisposable
             {
                 if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0
                     || System.IO.Directory.GetCreationTimeUtc(directory) > DateTime.UtcNow.AddHours(-1)) continue;
+                // Keep a known-working helper while an interrupted transaction still needs it.
+                var jobPath = Path.Combine(directory, "install.json");
+                if (File.Exists(jobPath))
+                {
+                    try
+                    {
+                        var job = System.Text.Json.JsonSerializer.Deserialize<UpdateJob>(File.ReadAllText(jobPath));
+                        if (job is not null && File.Exists(job.Target + ".update.json")) continue;
+                    }
+                    catch (System.Text.Json.JsonException) { continue; }
+                }
                 foreach (var name in new[] { "archive.zip", "payload.exe", "AMZ.Resolution.Updater.exe", "ResolutionTray.Updater.exe", "install.json", "cancelled" })
                     File.Delete(Path.Combine(directory, name));
                 System.IO.Directory.Delete(directory, false);

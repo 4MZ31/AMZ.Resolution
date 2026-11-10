@@ -15,6 +15,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         if (args is ["--apply-update", var job]) return UpdateInstaller.Run(job);
+        if (args is ["--recover-update", var target]) return UpdateInstaller.Recover(target);
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => ShowError(e.Exception);
@@ -60,6 +61,8 @@ internal static class Program
             try
             {
                 if (args is ["--quit"]) return 0;
+                // Local\ mutex remains the same-session UI protocol; the file lock covers other sessions.
+                using var storageLock = AppStorage.AcquireExclusive("instance.lock");
                 using var context = new TrayContext(args is ["--settings"], updated, resume);
                 Application.Run(context);
             }

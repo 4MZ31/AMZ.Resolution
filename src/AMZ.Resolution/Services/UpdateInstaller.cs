@@ -18,7 +18,7 @@ internal static class UpdateInstaller
         get
         {
 #if PORTABLE
-            return true;
+            return UpdateTrust.CanAuthenticate;
 #else
             return false;
 #endif
@@ -32,13 +32,16 @@ internal static class UpdateInstaller
         {
             try { acquired = mutex.WaitOne(0); }
             catch (AbandonedMutexException) { acquired = true; }
-            return !acquired;
+            if (!acquired) return true;
+            try { using var fileLock = AppStorage.AcquireExclusive("installation.lock"); return false; }
+            catch (IOException) { return true; }
         }
         finally { if (acquired) mutex.ReleaseMutex(); }
     }
 
     internal static Task BeginAsync(PreparedUpdate update, bool resumeMonitoring, string target) => Task.Run(() =>
     {
+        UpdateTrust.Verify(update.Payload);
         target = Path.GetFullPath(target);
         if (!target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(target)
             || (File.GetAttributes(target) & FileAttributes.ReparsePoint) != 0)
@@ -80,6 +83,7 @@ internal static class UpdateInstaller
             try { acquired = install.WaitOne(0); }
             catch (AbandonedMutexException) { acquired = true; }
             if (!acquired) return 1;
+            using var installationLock = AppStorage.AcquireExclusive("installation.lock");
             job = ReadJob(jobPath);
             var directory = Path.GetDirectoryName(Path.GetFullPath(jobPath))!;
             var payload = Path.Combine(directory, "payload.exe");
@@ -87,6 +91,7 @@ internal static class UpdateInstaller
                 || !UpdateArchive.MatchesHash(Environment.ProcessPath!, job.OldHash))
                 throw new InvalidDataException("Les fichiers de l’installation ont changé.");
             GitHubUpdateClient.VerifyExecutable(payload, version);
+            UpdateTrust.Verify(payload);
             using (var ready = EventWaitHandle.OpenExisting(ReadyName(job.Id))) ready.Set();
             WaitForParent(job, directory);
             parentExited = true;
@@ -99,6 +104,8 @@ internal static class UpdateInstaller
                 if (!available) throw new IOException("Une autre instance de l’application est ouverte. Mise à jour annulée.");
                 main.ReleaseMutex();
             }
+            // Verify cross-session quiescence before replacing; the installation lock blocks new normal starts.
+            using (AppStorage.AcquireExclusive("instance.lock")) { }
             using var healthy = new EventWaitHandle(false, EventResetMode.AutoReset, HealthyName(job.Id));
             int? startedId = null;
             UpdateTransaction.Install(job.Target, payload, job.OldHash, job.PayloadHash, () =>
@@ -140,6 +147,21 @@ internal static class UpdateInstaller
             return 1;
         }
         finally { if (acquired) install.ReleaseMutex(); }
+    }
+    internal static int Recover(string target)
+    {
+        try
+        {
+            using var installationLock = AppStorage.AcquireExclusive("installation.lock");
+            using var applicationLock = AppStorage.AcquireExclusive("instance.lock");
+            target = Path.GetFullPath(target);
+            if (!target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                || target.Equals(Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
+                throw new IOException("La récupération doit être lancée depuis le helper, application fermée.");
+            UpdateTransaction.Recover(target);
+            return 0;
+        }
+        catch (Exception ex) { AppStorage.Log(ex); return 1; }
     }
     private static UpdateJob ReadJob(string path)
     {

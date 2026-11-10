@@ -1,5 +1,14 @@
 using AMZ.Resolution.Core;
 
+if (args is ["--interrupt-update", var target, var payload])
+{
+    UpdateTransaction.Install(target, payload, UpdateArchive.HashFile(target), UpdateArchive.HashFile(payload), () =>
+    {
+        Environment.Exit(77); // abrupt process termination: no catch/finally, just as a killed helper
+        return false;
+    });
+    return 1;
+}
 var cases = new List<(string, Func<Task>)>
 {
     ("Activation: journal et surveillance avant toute mutation", async () =>
@@ -129,6 +138,7 @@ cases.AddRange(GameModeTests.Cases());
 cases.AddRange(GameCatalogTests.Cases());
 cases.AddRange(UpdateTests.Cases());
 cases.AddRange(DisplayProfileTests.Cases());
+cases.AddRange(SecurityTests.Cases());
 foreach (var stage in new[] { "create", "center", "test", "apply" })
 {
     var failedStage = stage;
