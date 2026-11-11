@@ -50,7 +50,11 @@ internal sealed partial class TrayContext
         if (updateBusy || exiting) return;
         if (!UpdateInstaller.CanInstall)
         {
-            if (manual) MessageBox.Show("Les mises à jour sont disponibles dans la version portable téléchargée sur GitHub.", "AMZ.Resolution");
+            if (manual)
+            {
+                MessageBox.Show("L’installation automatique nécessite une signature d’éditeur vérifiable. Téléchargez la nouvelle version sur la page GitHub.", "AMZ.Resolution");
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/4MZ31/AMZ.Resolution/releases") { UseShellExecute = true });
+            }
             return;
         }
         updateManual = manual;

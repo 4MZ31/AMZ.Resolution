@@ -9,7 +9,7 @@ public static class GameManifests
     public static string[] SteamLibraries(string text) =>
         (ValveKeyValues.Parse(text).Child("libraryfolders")?.Children.Values.AsEnumerable() ?? [])
         .Select(v => v.Value ?? v.Text("path"))
-        .Where(v => !string.IsNullOrWhiteSpace(v) && Path.IsPathFullyQualified(v))
+        .Where(v => LocalGamePath.IsLocal(v))
         .Cast<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     public static GameInstallation? Steam(string text, string library)
@@ -34,7 +34,7 @@ public static class GameManifests
         var id = Text(app, "AppName");
         var directory = Text(app, "InstallLocation");
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(directory)
-            || !Path.IsPathFullyQualified(directory) || id.StartsWith("UE_", StringComparison.OrdinalIgnoreCase)) return null;
+            || !LocalGamePath.IsLocal(directory) || id.StartsWith("UE_", StringComparison.OrdinalIgnoreCase)) return null;
         if (app.TryGetProperty("bIsIncompleteInstall", out var incomplete) && incomplete.ValueKind == JsonValueKind.True) return null;
         directory = Path.GetFullPath(directory);
         if (directory.TrimEnd(Path.DirectorySeparatorChar) == Path.GetPathRoot(directory)?.TrimEnd(Path.DirectorySeparatorChar)) return null;

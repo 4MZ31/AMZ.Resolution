@@ -27,9 +27,12 @@ internal sealed partial class TrayContext : ApplicationContext
     private bool initialized;
     private bool openSettings;
     private bool exiting;
+    private readonly System.Windows.Forms.Timer safetyPulse = new() { Interval = 1000 };
 
     internal TrayContext(bool showSettings, Guid? updated = null, bool resumeMonitoring = false)
     {
+        safetyPulse.Tick += (_, _) => SafetyMonitor.Pulse();
+        safetyPulse.Start();
         settings = SettingsStore.Load();
         UiTheme.SetDarkMode(settings.DarkMode);
         game.Update(settings.GameList);
@@ -65,6 +68,7 @@ internal sealed partial class TrayContext : ApplicationContext
             {
                 initialized = true; poll.Interval = 1000;
                 AcknowledgeUpdateStartup();
+                if (SettingsStore.LoadWarning is { } warning) tray.ShowBalloonTip(8000, "Paramètres récupérés", warning, ToolTipIcon.Warning);
                 if (controller.Session is not null)
                 {
                     DialogResult result;
@@ -83,7 +87,22 @@ internal sealed partial class TrayContext : ApplicationContext
             if (!working) await RefreshAsync();
             if (!working && !exiting) await UpdateTickAsync();
         }
-        catch (Exception ex) { poll.Stop(); SetInactive("Erreur — voir le journal"); Program.ShowError(ex); }
+        catch (Exception ex)
+        {
+            poll.Stop(); SetWorking(true);
+            try
+            {
+                await gameMode.DisableAsync();
+                SetInactive("Erreur — bureau restauré, réactivez la surveillance");
+            }
+            catch (Exception recovery)
+            {
+                AppStorage.Log(recovery);
+                SetInactive("Erreur — restauration nécessaire");
+            }
+            finally { SetWorking(false); restore.Visible = true; }
+            Program.ShowError(ex);
+        }
     }
 
     private void SetWorking(bool value, bool showTransition = true)
@@ -123,6 +142,7 @@ internal sealed partial class TrayContext : ApplicationContext
         if (gameMode.Enabled || controller.Session is not null) { await RestoreAsync(); return; }
         if (settings.DisplayIdentity is null || !game.HasSelection) { await OpenSettingsAsync(); return; }
         gameMode.Enable();
+        poll.Start();
         await SynchronizeGameAsync();
         await RefreshAsync();
     }
@@ -245,6 +265,7 @@ internal sealed partial class TrayContext : ApplicationContext
         {
             UiTheme.ThemeChanged -= RefreshMenuTheme;
             DisposeUpdates();
+            safetyPulse.Dispose();
             poll.Dispose(); tray.Dispose(); menu.Dispose(); gray.Dispose(); green.Dispose();
             settingsSignal.Dispose(); quitSignal.Dispose();
         }

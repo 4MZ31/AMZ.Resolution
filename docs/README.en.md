@@ -71,15 +71,13 @@ Settings, recovery data and local error logs live in **%LOCALAPPDATA%\AmdResolut
 .\AMZ.Resolution.exe --diagnose "$env:TEMP\amz-resolution.json"
 ~~~
 
-Diagnostics include monitor identifiers; remove them before posting a public issue. Use --settings to reopen settings and --quit to request a graceful exit. --scan-games <file.json> exports a read-only game scan containing installation names and paths. From v0.4.0, portable releases update automatically; upgrading from an older version requires one final manual replacement. Existing settings are preserved.
+Diagnostics include monitor identifiers; remove them before posting a public issue. Use --settings to reopen settings and --quit to request a graceful exit. --scan-games <file.json> exports a read-only game scan containing installation names and paths. Since v0.8.0, unsigned builds require manual updates. Existing settings are preserved.
 
-## Automatic updates
+## Updates
 
-The portable app checks this GitHub repository at startup and every six hours, including numbered experimental releases. Older versions and drafts are ignored. Network errors leave the app running and are retried later. **Mises à jour automatiques** in settings enables/disables this behavior; **Mettre à jour maintenant…** in the tray menu checks and installs on demand.
+Since **v0.8.0**, automatic installation requires valid Windows Authenticode signatures and the same publisher certificate as the running application. **The current public build is unsigned: automatic installation is disabled and the update menu opens GitHub downloads.** Quit the application and restore the desktop before replacing the executable. Settings are preserved.
 
-Downloads are checked against the published SHA-256 and GitHub digest when present, then the Windows x64 executable format and file version are verified. Installation waits until selected games and configuration windows are closed. The desktop is restored before exit. A separate process replaces the executable in its current folder, relaunches it and keeps a backup until startup is acknowledged. Failed startup restores and relaunches the previous version. Armed monitoring resumes, and settings are preserved.
-
-The install folder must be writable by the current user; no elevation is requested. Upgrade from v0.3.0 or earlier once by quitting the old app, extracting the latest release and replacing AMZ.Resolution.exe. Future updates are automatic. Development builds do not replace themselves. Temporary downloads under %LOCALAPPDATA%\AmdResolutionTray\Updates are cleaned during later checks. Update requests contact GitHub and its download servers; game paths and settings stay local. Checksums verify download integrity, not publisher signatures. To uninstall, disable startup in settings, exit and remove the extracted folder. The custom AMD mode can be removed separately in Adrenalin.
+Future signed builds only accept newer stable versions, with SHA-256, Windows x64 format and version checks in addition to signature verification. The helper retains the previous executable until startup is acknowledged; a durable journal supports recovery after interruption. See `SECURITY.md` for the recovery command and remaining administrator settings. Temporary update files stay under `%LOCALAPPDATA%\AmdResolutionTray\Updates`. No elevation is requested. Build attestations do not replace publisher signatures.
 
 ## Build and validation
 
@@ -92,7 +90,7 @@ dotnet run --project tests/AMZ.Resolution.UiTests -c Release
 .\build.ps1
 ~~~
 
-Close the app before rebuilding into the same output folder. build.ps1 runs 127 deterministic tests (including manifests, executable matching, multiple simultaneous games and cancellation scenarios), runs WinForms interaction checks without AMD/display changes, publishes a self-contained executable and creates a ZIP plus SHA-256 checksum under artifacts/. GitHub Actions performs the same checks on Windows, plus native updater restart and rollback tests on isolated executable copies.
+Close the app before rebuilding into the same output folder. build.ps1 runs 145 deterministic tests (including manifests, executable matching, multiple simultaneous games and cancellation scenarios), runs WinForms interaction checks without AMD/display changes, publishes a self-contained executable and creates a ZIP plus SHA-256 checksum under artifacts/. GitHub Actions performs the same checks on Windows, plus native updater restart and rollback tests on isolated executable copies.
 
 Experimental first version: mode creation/application and automatic restoration were verified on a Radeon RX 7800 XT with a MSI MAG272CQR at 144 Hz. Two other connected displays retained their original settings after restoration. This does not establish compatibility with every monitor or validate CS2 rendering. Multi-game selection is covered by automated tests. Real Steam/Epic scanning, search, checkbox selection and rescan retention were verified. Newly selected games still need validation on each installation. The v0.5.0 profile/rate validation and temporary test restoration are covered by automated tests; input validation, the preview and real refresh-rate detection were checked without changing the display. New hardware combinations still require the compatibility test on each installation.
 

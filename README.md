@@ -123,24 +123,17 @@ Ce fichier contient les identifiants de vos moniteurs. Retirer ces identifiants 
 
 Les commandes --settings et --quit ouvrent les paramètres de l'instance existante ou demandent une fermeture avec restauration. --scan-games <fichier.json> exporte le résultat d’un scan en lecture seule ; cet export contient les noms et chemins des installations et reste local.
 
-## Mises à jour automatiques
+## Mises à jour
 
-À partir de la **v0.4.0**, la version portable vérifie les publications de ce dépôt GitHub au démarrage puis toutes les six heures. Les versions publiées numérotées, y compris expérimentales, sont prises en compte. Les brouillons et versions plus anciennes sont ignorés. Une panne réseau laisse l’application fonctionner ; une nouvelle vérification sera tentée plus tard.
+Depuis la **v0.8.0**, une installation automatique exige une signature Authenticode valide du même éditeur que l’application installée. **La release publique actuelle n’est pas signée : les mises à jour automatiques sont désactivées et le menu de mise à jour ouvre les téléchargements GitHub.** Quitter l’application, restaurer l’affichage puis remplacer l’exécutable ; les paramètres sont conservés.
 
-- **Mises à jour automatiques**, dans les paramètres, est activé par défaut et peut être désactivé.
-- **Mettre à jour maintenant…**, dans le menu de l’icône, permet de rechercher et installer une version sans attendre.
-- Le téléchargement est vérifié avec le SHA-256 et, lorsqu’il est disponible, l’empreinte fournie par GitHub. Le contenu et la version de l’exécutable Windows x64 sont également contrôlés.
-- L’installation attend la fermeture des jeux sélectionnés et des fenêtres de configuration. Le bureau est restauré avant la fermeture de l’application.
-- Un processus séparé remplace l’exécutable dans son dossier actuel puis redémarre l’application. Si son démarrage n’est pas confirmé, l’ancienne version est restaurée et relancée. Les réglages ne sont pas remplacés ; la surveillance précédemment armée reprend au redémarrage.
-- Aucune élévation administrateur n’est demandée. Le dossier contenant l’application doit être accessible en écriture (par exemple un dossier utilisateur). Un dossier protégé peut nécessiter de déplacer l’application.
+Pour les futures builds signées, seules les versions stables supérieures sont éligibles. Les contrôles SHA-256, format Windows x64 et version complètent la vérification de signature. Le remplacement attend la fermeture des jeux et la restauration du bureau ; un helper conserve l’ancien exécutable jusqu’à confirmation du démarrage. Un journal permet de récupérer une opération interrompue, selon la procédure de [SECURITY.md](SECURITY.md).
 
-**Installation initiale depuis une version antérieure à v0.4.0 :** quitter l’ancienne application, télécharger et extraire une dernière fois la nouvelle archive, puis remplacer AMZ.Resolution.exe. Les mises à jour suivantes sont automatiques. Les builds de développement ne s’auto-remplacent pas.
-
-Les téléchargements temporaires sont placés dans **%LOCALAPPDATA%\AmdResolutionTray\Updates**. Les anciennes préparations sont nettoyées lors des vérifications suivantes. Les requêtes contactent GitHub et ses serveurs de téléchargement ; la liste de jeux et les réglages restent locaux. Le SHA-256 contrôle l’intégrité du téléchargement et ne constitue pas une signature de l’éditeur.
+Les préparations restent dans `%LOCALAPPDATA%\AmdResolutionTray\Updates`. Aucune élévation administrateur n’est demandée. Les requêtes de mise à jour contactent GitHub ; les jeux et réglages restent locaux. Les empreintes et attestations de compilation ne remplacent pas une signature d’éditeur Windows.
 
 ## Développer
 
-Installer le SDK .NET 10 et utiliser Windows x64. Aucune bibliothèque native AMD n'est redistribuée ; l'application charge celle du pilote installé. Les liaisons C# suivent les signatures du [SDK ADLX officiel](https://github.com/GPUOpen-LibrariesAndSDKs/ADLX/tree/32b5a740d42295c5dfe9026b9f52683da0f3af91/SDK/Include).
+Installer le SDK indiqué dans global.json et utiliser Windows x64. Aucune bibliothèque native AMD n'est redistribuée ; l'application charge celle du pilote installé. Les liaisons C# suivent les signatures du [SDK ADLX officiel](https://github.com/GPUOpen-LibrariesAndSDKs/ADLX/tree/32b5a740d42295c5dfe9026b9f52683da0f3af91/SDK/Include).
 
 ~~~powershell
 dotnet build AMZ.Resolution.slnx -c Release
@@ -153,7 +146,7 @@ Fermer l'application avant de recompiler dans le même dossier de sortie. build.
 
 - src/AMZ.Resolution.Core : orchestration des changements et récupération, indépendante du matériel.
 - src/AMZ.Resolution : interface WinForms, appels Windows et AMD ADLX, stockage et processus de récupération.
-- tests/AMZ.Resolution.Tests : 127 tests déterministes des profils, jeux, archives, versions et remplacements réversibles, sans modifier l’écran.
+- tests/AMZ.Resolution.Tests : 145 tests déterministes des profils, jeux, archives, versions et remplacements réversibles, sans modifier l’écran.
 - tests/AMZ.Resolution.UiTests : contrôles WinForms de navigation, sélection, filtres, géométrie minimale, validation, dialogues, thèmes et conservation des préférences. Les tests du bouton de compatibilité utilisent un substitut, sans appel AMD ni changement d’affichage.
 
 ## État de validation

@@ -6,6 +6,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $applicationPath = (Resolve-Path -LiteralPath $ApplicationExe).Path
+$unsignedPayload = $applicationPath
 $payloadPath = if ($PayloadExe) { (Resolve-Path -LiteralPath $PayloadExe).Path } else { $applicationPath }
 $targetName = if ($LegacyProtocol) { 'ResolutionTray.exe' } else { 'AMZ.Resolution.exe' }
 $helperName = if ($LegacyProtocol) { 'ResolutionTray.Updater.exe' } else { 'AMZ.Resolution.Updater.exe' }
@@ -27,15 +28,45 @@ if (-not $free -or (Test-Path -LiteralPath (Join-Path $dataRoot 'recovery.json')
     Write-Output 'SKIP: existing application, recovery session or update notification; user state preserved.'
     exit 0
 }
+# Sign only isolated fixture copies. Never sign/replace a release artifact with a test key.
+$fixtureDir = Join-Path $artifactsRoot ('signed-fixture-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $fixtureDir -Force | Out-Null
+Write-Output 'Preparing isolated signing certificate.'
+$certificate = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=AMZ isolated updater test' -CertStoreLocation Cert:\CurrentUser\My -KeyAlgorithm RSA -KeyLength 2048 -NotAfter (Get-Date).AddDays(1)
+$certificateFile = Join-Path $fixtureDir 'test.cer'
+Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
+Write-Output 'Trusting isolated certificate on the test runner.'
+# The user root store opens a desktop trust dialog. The disposable GitHub runner is
+# elevated; use its machine root store for unattended tests, then remove our exact cert.
+$trustLocation = if ($env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_ENVIRONMENT -eq 'github-hosted') { 'LocalMachine' } else { 'CurrentUser' }
+Import-Certificate -FilePath $certificateFile -CertStoreLocation "Cert:\$trustLocation\Root" | Out-Null
+Import-Certificate -FilePath $certificateFile -CertStoreLocation Cert:\CurrentUser\TrustedPublisher | Out-Null
+function Sign-Fixture([string]$Path) {
+    $signature = Set-AuthenticodeSignature -FilePath $Path -Certificate $certificate -HashAlgorithm SHA256
+    if ($signature.Status -ne 'Valid') { throw "Invalid fixture signature: $($signature.Status)" }
+}
+try {
+    $oldFixture = Join-Path $fixtureDir 'original.exe'
+    $newFixture = Join-Path $fixtureDir 'payload.exe'
+    Copy-Item -LiteralPath $applicationPath -Destination $oldFixture
+    Copy-Item -LiteralPath $payloadPath -Destination $newFixture
+    Write-Output 'Signing isolated fixture copies.'
+    Sign-Fixture $oldFixture
+    Sign-Fixture $newFixture
+    $applicationPath = $oldFixture
+    $payloadPath = $newFixture
 $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($payloadPath)
 $version = '{0}.{1}.{2}' -f $versionInfo.FileMajorPart, $versionInfo.FileMinorPart, $versionInfo.FileBuildPart
 $failureDir = Join-Path $artifactsRoot 'update-failure-stub'
+Write-Output 'Building failure fixture.'
 dotnet publish (Join-Path $PSScriptRoot 'UpdateFailureStub\UpdateFailureStub.csproj') -c Release -r win-x64 --self-contained true -o $failureDir -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:DebugSymbols=false -p:Version=$version -p:Product=$payloadProduct
 if ($LASTEXITCODE -ne 0) { throw 'Failure stub build failed.' }
+Sign-Fixture (Join-Path $failureDir 'AMZ.Resolution.exe')
 $originalHash = (Get-FileHash -LiteralPath $applicationPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $expectedSettings = Join-Path $dataRoot 'settings.json'
 $settingsHash = if (Test-Path -LiteralPath $expectedSettings) { (Get-FileHash -LiteralPath $expectedSettings -Algorithm SHA256).Hash } else { $null }
-foreach ($case in @('success', 'rollback')) {
+foreach ($case in @('unsigned', 'success', 'rollback')) {
+    Write-Output "Starting native case: $case"
     $jobId = [Guid]::NewGuid()
     $stage = Join-Path (Join-Path $dataRoot 'Updates') $jobId.ToString('N')
     $targetDir = [IO.Path]::GetFullPath((Join-Path $artifactsRoot ('updater-integration-' + $jobId.ToString('N'))))
@@ -46,7 +77,7 @@ foreach ($case in @('success', 'rollback')) {
     $payload = Join-Path $stage 'payload.exe'
     Copy-Item -LiteralPath $applicationPath -Destination $target
     Copy-Item -LiteralPath $applicationPath -Destination $helperPath
-    $sourcePayload = if ($case -eq 'success') { $payloadPath } else { Join-Path $failureDir 'AMZ.Resolution.exe' }
+    $sourcePayload = if ($case -eq 'unsigned') { $unsignedPayload } elseif ($case -eq 'success') { $payloadPath } else { Join-Path $failureDir 'AMZ.Resolution.exe' }
     Copy-Item -LiteralPath $sourcePayload -Destination $payload
     $payloadHash = (Get-FileHash -LiteralPath $payload -Algorithm SHA256).Hash.ToLowerInvariant()
     $ready = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::AutoReset, $mutexName + '-UpdateReady-' + $jobId)
@@ -59,6 +90,13 @@ foreach ($case in @('success', 'rollback')) {
     [IO.File]::WriteAllText($jobPath, ($job | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
     $helper = Start-Process -FilePath $helperPath -ArgumentList @('--apply-update', ('"' + $jobPath + '"')) -WindowStyle Hidden -PassThru
     try {
+        if ($case -eq 'unsigned') {
+            if (-not $helper.WaitForExit(15000)) { throw 'Unsigned payload rejection timed out.' }
+            if ($helper.ExitCode -ne 1 -or $ready.WaitOne(0)) { throw 'Unsigned payload was accepted.' }
+            if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne $originalHash) { throw 'Unsigned payload modified the target.' }
+            Write-Output 'PASS unsigned payload rejected before replacement, even with matching hashes and version.'
+            continue
+        }
         if (-not $ready.WaitOne(15000)) { throw "Updater readiness failed: $case" }
         if (-not $helper.WaitForExit(45000)) { throw "Updater did not complete: $case" }
         $expectedExit = if ($case -eq 'success') { 0 } else { 1 }
@@ -86,3 +124,11 @@ foreach ($case in @('success', 'rollback')) {
 $actualSettingsHash = if (Test-Path -LiteralPath $expectedSettings) { (Get-FileHash -LiteralPath $expectedSettings -Algorithm SHA256).Hash } else { $null }
 if ($actualSettingsHash -ne $settingsHash) { throw 'User settings changed during updater integration tests.' }
 Write-Output 'PASS user settings preserved.'
+
+}
+finally {
+    foreach ($store in @('CurrentUser\My', ($trustLocation + '\Root'), 'CurrentUser\TrustedPublisher')) {
+        $certificatePath = "Cert:\$store\$($certificate.Thumbprint)"
+        if (Test-Path -LiteralPath $certificatePath) { Remove-Item -LiteralPath $certificatePath -Force }
+    }
+}
