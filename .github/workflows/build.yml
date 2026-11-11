@@ -29,6 +29,7 @@ jobs:
         shell: pwsh
         run: ./build.ps1
       - name: Verify authenticated updater restart and rollback
+        timeout-minutes: 5
         shell: pwsh
         run: ./tests/UpdaterIntegration.ps1 -ApplicationExe ./artifacts/portable/AMZ.Resolution.exe -RequireRun
       - name: Verify update from the pre-rename application
