@@ -36,7 +36,10 @@ $certificate = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=AMZ 
 $certificateFile = Join-Path $fixtureDir 'test.cer'
 Export-Certificate -Cert $certificate -FilePath $certificateFile | Out-Null
 Write-Output 'Trusting isolated certificate on the test runner.'
-Import-Certificate -FilePath $certificateFile -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+# The user root store opens a desktop trust dialog. The disposable GitHub runner is
+# elevated; use its machine root store for unattended tests, then remove our exact cert.
+$trustLocation = if ($env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_ENVIRONMENT -eq 'github-hosted') { 'LocalMachine' } else { 'CurrentUser' }
+Import-Certificate -FilePath $certificateFile -CertStoreLocation "Cert:\$trustLocation\Root" | Out-Null
 Import-Certificate -FilePath $certificateFile -CertStoreLocation Cert:\CurrentUser\TrustedPublisher | Out-Null
 function Sign-Fixture([string]$Path) {
     $signature = Set-AuthenticodeSignature -FilePath $Path -Certificate $certificate -HashAlgorithm SHA256
@@ -124,8 +127,8 @@ Write-Output 'PASS user settings preserved.'
 
 }
 finally {
-    foreach ($store in @('My', 'Root', 'TrustedPublisher')) {
-        $certificatePath = "Cert:\CurrentUser\$store\$($certificate.Thumbprint)"
+    foreach ($store in @('CurrentUser\My', ($trustLocation + '\Root'), 'CurrentUser\TrustedPublisher')) {
+        $certificatePath = "Cert:\$store\$($certificate.Thumbprint)"
         if (Test-Path -LiteralPath $certificatePath) { Remove-Item -LiteralPath $certificatePath -Force }
     }
 }
