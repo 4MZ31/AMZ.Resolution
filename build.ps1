@@ -25,8 +25,9 @@ try {
     Copy-Item -LiteralPath (Join-Path $publishDir 'AMZ.Resolution.exe') -Destination $standalone
     $exeHash = (Get-FileHash -LiteralPath $standalone -Algorithm SHA256).Hash.ToLowerInvariant()
     [IO.File]::WriteAllText($standalone + '.sha256', $exeHash + '  AMZ.Resolution.exe' + [Environment]::NewLine)
-    $assets = Get-Content src/AMZ.Resolution/obj/project.assets.json -Raw | ConvertFrom-Json -AsHashtable
-    $runtimePacks = @($assets.libraries.Keys | Where-Object { $_ -match 'Microsoft\.(NETCore|WindowsDesktop)\.App\.Runtime' })
+    $runtimeConfig = Get-Content (Join-Path $PSScriptRoot "src/AMZ.Resolution/bin/$Configuration/net10.0-windows/win-x64/AMZ.Resolution.runtimeconfig.json") -Raw | ConvertFrom-Json
+    $runtimePacks = @($runtimeConfig.runtimeOptions.includedFrameworks | ForEach-Object { $_.name + '/' + $_.version })
+    if ($runtimePacks.Count -eq 0) { throw 'Bundled runtime versions were not recorded.' }
     [ordered]@{
         Version = $version
         Commit = if ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { (git rev-parse HEAD) }
